@@ -9,7 +9,12 @@ const userRoutes = require('./routes/userRoutes'); // Assuming you have user rou
 
 const app = express();
 
-const allowedOrigins = ['http://localhost:3000', 'https://sfcpcsystem.ngrok.io', 'http://localhost:5173']; // Include all your allowed origins
+const allowedOrigins = [
+  'http://localhost:3000', 
+  'https://sfcpcsystem.ngrok.io', 
+  'http://localhost:5173',  // Ensure to use the correct port for your frontend
+  'http://localhost:5174'
+];
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -23,7 +28,7 @@ const corsOptions = {
   credentials: true
 };
 
-app.use(cors(corsOptions));
+app.use(cors(corsOptions)); // Enable CORS with the specified options
 
 app.use(bodyParser.json());
 

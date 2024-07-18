@@ -1,4 +1,3 @@
-// src/models/user.js
 const db = require('../config/database');
 const bcrypt = require('bcrypt');
 
@@ -18,6 +17,12 @@ class User {
   static async findByUsername(username) {
     const query = 'SELECT * FROM Users WHERE username = $1';
     const result = await db.query(query, [username]);
+    return result.rows[0];
+  }
+
+  static async findById(id) {
+    const query = 'SELECT * FROM Users WHERE id = $1';
+    const result = await db.query(query, [id]);
     return result.rows[0];
   }
 

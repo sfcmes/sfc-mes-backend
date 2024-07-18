@@ -33,19 +33,19 @@ const {
   const getUserProfile = async (req, res) => {
     console.log('Fetching user profile for user ID:', req.user.id); // Add logging
     try {
-      const userId = req.user.id;
-      console.log(`Querying database for user ID: ${userId}`); // Add detailed logging
-      const user = await queryGetUserById(userId); // Correctly use query function
-      console.log('User found:', user); // Add logging
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      res.json(user);
+        const userId = req.user.id;
+        console.log(`Querying database for user ID: ${userId}`); // Add detailed logging
+        const user = await queryGetUserById(userId); // Correctly use query function
+        console.log('User found:', user); // Add logging
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json(user);
     } catch (error) {
-      console.error('Error fetching user profile:', error);
-      res.status(500).json({ error: 'Error fetching user profile' });
+        console.error('Error fetching user profile:', error);
+        res.status(500).json({ error: 'Error fetching user profile' });
     }
-  };
+};
   
   // POST create a new user
   const createUser = async (req, res) => {

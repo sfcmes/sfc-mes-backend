@@ -37,6 +37,11 @@
                                                   "Type":  "File"
                                               },
                                               {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\controllers\\roleController.js",
+                                                  "Name":  "roleController.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\controllers\\sectionController.js",
                                                   "Name":  "sectionController.js",
                                                   "Type":  "File"
@@ -98,6 +103,11 @@
                                                   "Type":  "File"
                                               },
                                               {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\queries\\roleQueries.js",
+                                                  "Name":  "roleQueries.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\queries\\sectionQueries.js",
                                                   "Name":  "sectionQueries.js",
                                                   "Type":  "File"
@@ -120,6 +130,11 @@
                                                   "Type":  "File"
                                               },
                                               {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\componentRoutes.js",
+                                                  "Name":  "componentRoutes.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\index.js",
                                                   "Name":  "index.js",
                                                   "Type":  "File"
@@ -127,6 +142,21 @@
                                               {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\projectRoutes.js",
                                                   "Name":  "projectRoutes.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\roleRoutes.js",
+                                                  "Name":  "roleRoutes.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\sectionRoutes.js",
+                                                  "Name":  "sectionRoutes.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\userRoutes.js",
+                                                  "Name":  "userRoutes.js",
                                                   "Type":  "File"
                                               }
                                           ]
@@ -169,6 +199,11 @@
         "Type":  "File"
     },
     {
+        "FullName":  "F:\\dev\\sfc-mes-backend\\database_diagram.md",
+        "Name":  "database_diagram.md",
+        "Type":  "File"
+    },
+    {
         "FullName":  "F:\\dev\\sfc-mes-backend\\generateSecret.js",
         "Name":  "generateSecret.js",
         "Type":  "File"
@@ -176,6 +211,11 @@
     {
         "FullName":  "F:\\dev\\sfc-mes-backend\\generate_project_structure.ps1",
         "Name":  "generate_project_structure.ps1",
+        "Type":  "File"
+    },
+    {
+        "FullName":  "F:\\dev\\sfc-mes-backend\\LICENSE",
+        "Name":  "LICENSE",
         "Type":  "File"
     },
     {

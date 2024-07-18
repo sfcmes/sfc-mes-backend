@@ -1,9 +1,9 @@
 const express = require('express');
-const router = express.Router();
 const { addComponent, getComponents } = require('../controllers/componentController');
 const auth = require('../middleware/auth');
+const router = express.Router();
 
 router.post('/', auth, addComponent);
-router.get('/:sectionId', auth, getComponents);
+router.get('/', auth, getComponents);
 
 module.exports = router;
