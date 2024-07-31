@@ -1,71 +1,59 @@
-const { createProject, getAllProjects, getProjectById, updateProjectById } = require('../queries/projectQueries');
-const { v4: uuidv4 } = require('uuid');
+const { getAllProjects, getProjectById, createProject, updateProjectById } = require('../queries/projectQueries');
 
-const validateProjectData = (data) => {
-    const { name, project_code } = data;
-    if (!name || !project_code) {
-        throw new Error('Name and project code are required');
-    }
-};
-
-const addProject = async (req, res) => {
-    const { name, project_code } = req.body;
-    try {
-        validateProjectData({ name, project_code });
-        const projectData = {
-            id: uuidv4(),
-            name,
-            project_code,
-            created_by: req.user.id,
-        };
-        const project = await createProject(projectData);
-        res.status(201).json({ message: 'Project created successfully', project });
-    } catch (error) {
-        const statusCode = error.message === 'Name and project code are required' ? 400 : 500;
-        res.status(statusCode).json({ error: error.message || 'Error creating project' });
-    }
-};
-
+// Function to get all projects
 const getProjects = async (req, res) => {
-    try {
-        const projects = await getAllProjects();
-        res.json(projects);
-    } catch (error) {
-        res.status(500).json({ error: 'Error retrieving projects' });
-    }
+  try {
+    const projects = await getAllProjects();
+    res.json(projects);
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    res.status(500).json({ error: 'Error retrieving projects' });
+  }
 };
 
+// Function to get a project by ID
 const getProject = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const project = await getProjectById(id);
-        if (!project) {
-            return res.status(404).json({ error: 'Project not found' });
-        }
-        res.json(project);
-    } catch (error) {
-        res.status(500).json({ error: 'Error retrieving project' });
+  try {
+    const projectId = req.params.id;
+    const project = await getProjectById(projectId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
     }
+    res.json(project);
+  } catch (error) {
+    console.error('Error fetching project:', error);
+    res.status(500).json({ error: 'Error retrieving project' });
+  }
 };
 
+// Function to create a new project
+const addProject = async (req, res) => {
+  try {
+    const projectData = req.body;
+    const newProject = await createProject(projectData);
+    res.status(201).json(newProject);
+  } catch (error) {
+    console.error('Error creating project:', error);
+    res.status(500).json({ error: 'Error creating project' });
+  }
+};
+
+// Function to update a project by ID
 const updateProject = async (req, res) => {
-    const { id } = req.params;
-    const { name, project_code } = req.body;
-    try {
-        validateProjectData({ name, project_code });
-        const project = await updateProjectById(id, { name, project_code });
-        if (!project) {
-            return res.status(404).json({ error: 'Project not found' });
-        }
-        res.json({ message: 'Project updated successfully', project });
-    } catch (error) {
-        res.status(500).json({ error: 'Error updating project' });
-    }
+  try {
+    const projectId = req.params.id;
+    const projectData = req.body;
+    const updatedProject = await updateProjectById(projectId, projectData);
+    res.json(updatedProject);
+  } catch (error) {
+    console.error('Error updating project:', error);
+    res.status(500).json({ error: 'Error updating project' });
+  }
 };
 
 module.exports = {
-    addProject,
-    getProjects,
-    getProject,
-    updateProject,
+  getProjects,
+  getProject,
+  addProject,
+  updateProject,
 };

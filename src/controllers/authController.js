@@ -4,7 +4,6 @@ const { createUser, findUserByEmail, findUserByUsername } = require('../queries/
 const { v4: uuidv4 } = require('uuid');
 
 const register = async (req, res) => {
-    console.log('register function called');
     const { email, username, password, role_id } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     const userData = {
@@ -35,39 +34,33 @@ const register = async (req, res) => {
 };
 
 const login = async (req, res) => {
-    console.log('login function called');
     const { email, username, password } = req.body;
-  
-    try {
-      let user;
-      if (email) {
-        console.log(`Executing query: SELECT * FROM users WHERE email = $1 with email: ${email}`);
-        user = await findUserByEmail(email);
-      } else if (username) {
-        console.log(`Executing query: SELECT * FROM users WHERE username = $1 with username: ${username}`);
-        user = await findUserByUsername(username);
-      } else {
-        return res.status(400).json({ error: 'Email or username must be provided' });
-      }
-  
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-  
-      const isMatch = await bcrypt.compare(password, user.password_hash);
-      if (!isMatch) {
-        return res.status(400).json({ error: 'Invalid credentials' });
-      }
-  
-      const token = jwt.sign({ id: user.id, role: user.role_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      res.json({ message: 'Logged in successfully', token });
-    } catch (error) {
-      console.error('Error logging in:', error);
-      res.status(500).json({ error: 'Error logging in' });
-    }
-  };
 
-module.exports = {
-    register,
-    login,
+    try {
+        let user;
+        if (email) {
+            user = await findUserByEmail(email);
+        } else if (username) {
+            user = await findUserByUsername(username);
+        } else {
+            return res.status(400).json({ error: 'Email or username must be provided' });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign({ id: user.id, email: user.email, role: user.role_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ message: 'Logged in successfully', token });
+    } catch (error) {
+        console.error('Error logging in:', error);
+        res.status(500).json({ error: 'Error logging in' });
+    }
 };
+
+module.exports = { register, login };
