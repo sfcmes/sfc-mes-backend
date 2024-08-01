@@ -1,4 +1,4 @@
-const { createSection, getSectionsByProjectId, getAllSections } = require('../queries/sectionQueries');
+const { createSection, getSectionsByProjectId, getAllSections, getSectionByIdFromDb  } = require('../queries/sectionQueries');
 const { v4: uuidv4 } = require('uuid');
 
 const addSection = async (req, res) => {
@@ -43,9 +43,22 @@ const getSectionsByProject = async (req, res) => {
         res.status(500).json({ error: 'Error retrieving sections for project' });
     }
 };
-
+const getSectionById = async (req, res) => {
+    const { sectionId } = req.params;
+    try {
+        const section = await getSectionByIdFromDb(sectionId);
+        if (section) {
+            res.json(section);
+        } else {
+            res.status(404).json({ error: 'Section not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Error retrieving section' });
+    }
+};
 module.exports = {
     addSection,
     getSections,
-    getSectionsByProject
+    getSectionsByProject,
+    getSectionById
 };
