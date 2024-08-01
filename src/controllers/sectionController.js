@@ -56,9 +56,11 @@ const getSectionById = async (req, res) => {
         res.status(500).json({ error: 'Error retrieving section' });
     }
 };
+
+
 module.exports = {
     addSection,
     getSections,
     getSectionsByProject,
-    getSectionById
+    getSectionById,
 };
