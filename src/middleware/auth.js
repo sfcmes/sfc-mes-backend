@@ -1,6 +1,6 @@
-// src/middleware/auth.js
 const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
+
 const jwtVerify = promisify(jwt.verify);
 
 const auth = async (req, res, next) => {
@@ -11,7 +11,8 @@ const auth = async (req, res, next) => {
 
     try {
         const decoded = await jwtVerify(token, process.env.JWT_SECRET);
-        req.user = decoded; // Assuming the token contains user information
+        req.user = decoded; // Set decoded token payload to req.user
+        console.log('Authenticated user:', req.user); // Debug log
         next();
     } catch (err) {
         res.status(401).json({ message: 'Token is not valid' });

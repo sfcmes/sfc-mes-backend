@@ -7,5 +7,4 @@ router.post('/', auth, uploadFileMiddleware, addComponent); // Use the middlewar
 router.get('/', auth, getComponents);
 router.get('/project/:projectId', getComponentsByProjectId);
 
-
 module.exports = router;

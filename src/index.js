@@ -1,18 +1,20 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const { createTablesIfNotExist } = require('./config/databaseInit');  // Add this line
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const sectionRoutes = require('./routes/sectionRoutes');
 const componentRoutes = require('./routes/componentRoutes');
-const userRoutes = require('./routes/userRoutes'); // Assuming you have user routes
+const userRoutes = require('./routes/userRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 
 const allowedOrigins = [
   'http://localhost:3000', 
   'https://sfcpcsystem.ngrok.io', 
-  'http://localhost:5173',  // Ensure to use the correct port for your frontend
+  'http://localhost:5173',
   'http://localhost:5174'
 ];
 
@@ -28,7 +30,7 @@ const corsOptions = {
   credentials: true
 };
 
-app.use(cors(corsOptions)); // Enable CORS with the specified options
+app.use(cors(corsOptions));
 
 app.use(bodyParser.json());
 
@@ -37,14 +39,25 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/api/auth', authRoutes); // Ensure this line is correct
+app.use('/api/upload', uploadRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/sections', sectionRoutes);
-app.use('/api/users', userRoutes); // Assuming you have user routes
+app.use('/api/users', userRoutes);
 app.use('/api/components', componentRoutes);
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await createTablesIfNotExist();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

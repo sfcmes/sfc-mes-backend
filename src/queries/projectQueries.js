@@ -1,44 +1,45 @@
 const db = require("../config/database");
+const { v4: uuidv4 } = require('uuid');
 
 const getAllProjects = async () => {
   const query = `
+    SELECT 
+        p.id, 
+        p.name, 
+        p.project_code AS project_code, 
+        p.created_by, 
+        p.created_at, 
+        p.updated_at,
+        COALESCE(AVG(section_progress.progress), 0) AS progress,
+        COUNT(DISTINCT s.id) AS sections,
+        COUNT(c.id) AS components,
+        CASE 
+            WHEN COUNT(DISTINCT s.id) = 0 THEN 'Planning'
+            WHEN SUM(CASE WHEN s.status = 'Completed' THEN 1 ELSE 0 END) = COUNT(DISTINCT s.id) AND COUNT(DISTINCT s.id) > 0 THEN 'Completed'
+            ELSE 'In Progress'
+        END as status
+    FROM projects p
+    LEFT JOIN sections s ON p.id = s.project_id
+    LEFT JOIN (
         SELECT 
-            p.id, 
-            p.name, 
-            p.project_code AS project_code, 
-            p.created_by, 
-            p.created_at, 
-            p.updated_at,
-            COALESCE(AVG(section_progress.progress), 0) AS progress,
-            COUNT(DISTINCT s.id) AS sections,
-            COUNT(c.id) AS components,
-            CASE 
-                WHEN COUNT(DISTINCT s.id) = 0 THEN 'Planning'
-                WHEN SUM(CASE WHEN s.status = 'Completed' THEN 1 ELSE 0 END) = COUNT(DISTINCT s.id) AND COUNT(DISTINCT s.id) > 0 THEN 'Completed'
-                ELSE 'In Progress'
-            END as status
-        FROM Projects p
-        LEFT JOIN Sections s ON p.id = s.project_id
+            c.section_id, 
+            COUNT(c.id) AS total_components, 
+            SUM(CASE WHEN csh.status = 'Installed' THEN 1 ELSE 0 END) * 100.0 / COUNT(c.id) AS progress
+        FROM components c
         LEFT JOIN (
             SELECT 
-                c.section_id, 
-                COUNT(c.id) AS total_components, 
-                SUM(CASE WHEN csh.status = 'Completed' THEN 1 ELSE 0 END) * 100.0 / COUNT(c.id) AS progress
-            FROM Components c
-            LEFT JOIN (
-                SELECT 
-                    csh.component_id, 
-                    MAX(csh.updated_at) AS latest_update
-                FROM ComponentStatusHistory csh
-                WHERE csh.status = 'Completed'
-                GROUP BY csh.component_id
-            ) latest_status ON c.id = latest_status.component_id
-            LEFT JOIN ComponentStatusHistory csh ON c.id = csh.component_id AND csh.updated_at = latest_status.latest_update
-            GROUP BY c.section_id
-        ) section_progress ON s.id = section_progress.section_id
-        LEFT JOIN Components c ON s.id = c.section_id
-        GROUP BY p.id
-    `;
+                csh.component_id, 
+                MAX(csh.updated_at) AS latest_update
+            FROM component_status_history csh
+            WHERE csh.status = 'Installed'
+            GROUP BY csh.component_id
+        ) latest_status ON c.id = latest_status.component_id
+        LEFT JOIN component_status_history csh ON c.id = csh.component_id AND csh.updated_at = latest_status.latest_update
+        GROUP BY c.section_id
+    ) section_progress ON s.id = section_progress.section_id
+    LEFT JOIN components c ON s.id = c.section_id
+    GROUP BY p.id
+  `;
   try {
     const { rows } = await db.query(query);
     return rows;
@@ -48,52 +49,65 @@ const getAllProjects = async () => {
   }
 };
 
+
+
 const getProjectById = async (id) => {
   const query = `
-      SELECT
-    p.id,
-    p.name,
-    p.project_code AS project_code,
-    p.created_by,
-    p.created_at,
-    p.updated_at,
-    COALESCE(AVG(section_progress.progress), 0) AS progress,
-    COUNT(DISTINCT s.id) AS sections,
-    COUNT(c.id) AS components,
-    CASE
-        WHEN COUNT(DISTINCT s.id) = 0 THEN 'Planning'
-        WHEN SUM(CASE WHEN s.status = 'Completed' THEN 1 ELSE 0 END) = COUNT(DISTINCT s.id) AND COUNT(DISTINCT s.id) > 0 THEN 'Completed'
-        ELSE 'In Progress'
-    END as status
-FROM Projects p
-LEFT JOIN Sections s ON p.id = s.project_id
-LEFT JOIN (
     SELECT
-        c.section_id,
-        COUNT(c.id) AS total_components,
-        SUM(CASE WHEN csh.status = 'Completed' THEN 1 ELSE 0 END) * 100.0 / COUNT(c.id) AS progress
-    FROM Components c
+      p.id,
+      p.name,
+      p.project_code AS project_code,
+      p.created_by,
+      p.created_at,
+      p.updated_at,
+      COALESCE(AVG(section_progress.progress), 0) AS progress,
+      COUNT(DISTINCT s.id) AS sections,
+      COUNT(c.id) AS components,
+      CASE
+          WHEN COUNT(DISTINCT s.id) = 0 THEN 'Planning'
+          WHEN SUM(CASE WHEN s.status = 'Completed' THEN 1 ELSE 0 END) = COUNT(DISTINCT s.id) AND COUNT(DISTINCT s.id) > 0 THEN 'Completed'
+          ELSE 'In Progress'
+      END as status
+    FROM projects p
+    LEFT JOIN sections s ON p.id = s.project_id
     LEFT JOIN (
         SELECT
-            csh.component_id,
-            MAX(csh.updated_at) AS latest_update
-        FROM ComponentStatusHistory csh
-        WHERE csh.status = 'Completed'
-        GROUP BY csh.component_id
-    ) latest_status ON c.id = latest_status.component_id
-    LEFT JOIN ComponentStatusHistory csh ON c.id = csh.component_id AND csh.updated_at = latest_status.latest_update
-    GROUP BY c.section_id
-) section_progress ON s.id = section_progress.section_id
-LEFT JOIN Components c ON s.id = c.section_id
-GROUP BY p.id;
-
-    `;
-  const { rows } = await db.query(query, [id]);
-  return rows[0];
+          c.section_id,
+          COUNT(c.id) AS total_components,
+          SUM(CASE WHEN csh.status = 'Installed' THEN 1 ELSE 0 END) * 100.0 / COUNT(c.id) AS progress
+        FROM components c
+        LEFT JOIN (
+            SELECT
+              csh.component_id,
+              MAX(csh.updated_at) AS latest_update
+            FROM component_status_history csh
+            WHERE csh.status = 'Installed'
+            GROUP BY csh.component_id
+        ) latest_status ON c.id = latest_status.component_id
+        LEFT JOIN component_status_history csh ON c.id = csh.component_id AND csh.updated_at = latest_status.latest_update
+        GROUP BY c.section_id
+    ) section_progress ON s.id = section_progress.section_id
+    LEFT JOIN components c ON s.id = c.section_id
+    GROUP BY p.id
+    HAVING p.id = $1;
+  `;
+  try {
+    const { rows } = await db.query(query, [id]);
+    return rows[0];
+  } catch (error) {
+    console.error('Error executing getProjectById query:', error);
+    throw error;
+  }
 };
 
+module.exports = {
+  getProjectById,
+};
+
+
 const createProject = async (projectData) => {
-  const { id, name, project_code, created_by } = projectData;
+  const { name, project_code, created_by } = projectData;
+  const id = projectData.id || uuidv4(); // Generate UUID if not provided
   const query =
     "INSERT INTO Projects (id, name, project_code, created_by) VALUES ($1, $2, $3, $4) RETURNING *";
   const values = [id, name, project_code, created_by];

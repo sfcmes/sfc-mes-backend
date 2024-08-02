@@ -1,89 +1,138 @@
-const { createComponentInDb, addComponentHistory, checkComponentExists } = require('../queries/componentQueries');
+const { 
+  createComponentInDb, 
+  addComponentHistory, 
+  checkComponentExists, 
+  insertComponentFile, 
+  updateComponentFilePath  // Make sure this is imported
+} = require('../queries/componentQueries');
+const { createTablesIfNotExist } = require('../config/databaseInit');  // Adjust this path as needed
 const { v4: uuidv4 } = require('uuid');
-const db = require('../config/database'); 
+const db = require('../config/database');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const multer = require('multer');
 
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 
-// const addComponent = async (req, res) => {
-//     const {
-//         section_id, name, type, width, height, thickness, extension, reduction, area, volume, weight, status
-//     } = req.body;
+const upload = multer();
 
-//     // Validate request payload
-//     if (!section_id || !name || !type || !width || !height || !thickness || !extension || !reduction || !area || !volume || !weight || !status) {
-//         return res.status(400).json({ error: 'Missing required fields' });
-//     }
-
-//     try {
-//         // Check for existing component
-//         const existingComponent = await db.query('SELECT 1 FROM Components WHERE name = $1 AND section_id = $2', [name, section_id]);
-//         if (existingComponent.rows.length > 0) {
-//             return res.status(400).json({ error: 'Component with the same name and section already exists' });
-//         }
-
-//         // Insert new component
-//         const id = uuidv4();
-//         const newComponent = await createComponentInDb({ id, section_id, name, type, width, height, thickness, extension, reduction, area, volume, weight, status });
-
-//         // Insert component history
-//         await addComponentHistory({ component_id: id, status: 'Manufactured', updated_at: new Date(), updated_by: req.user.id });
-
-//         res.status(201).json(newComponent);
-//     } catch (error) {
-//         console.error('Error creating component:', error);
-//         res.status(500).json({ error: 'Internal server error' });
-//     }
-// };
 const addComponent = async (req, res) => {
-    const {
-      id,
+  console.log('Received component data:', JSON.stringify(req.body, null, 2));
+  console.log('Received file:', req.file ? req.file.originalname : 'No file received');
+
+  const {
+    section_id,
+    name,
+    type,
+    width,
+    height,
+    thickness,
+    extension,
+    reduction,
+    area,
+    volume,
+    weight,
+    status
+  } = req.body;
+
+  // Validate required fields
+  if (!section_id || !name || !type || !width || !height || !thickness || !extension || !reduction || !area || !volume || !weight) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ error: 'File is required' });
+  }
+
+  const fileName = `${uuidv4()}.pdf`;
+  let component, fileUrl, componentFile, updatedComponent;
+
+  try {
+    component = await createComponentInDb({
+      id: uuidv4(),
       section_id,
       name,
       type,
-      width,
-      height,
-      thickness,
-      extension,
-      reduction,
-      area,
-      volume,
-      weight,
-      status
-    } = req.body;
-  
-    const query = `
-      INSERT INTO Components
-      (id, section_id, name, type, width, height, thickness, extension, reduction, area, volume, weight, status)
-      VALUES
-      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING *;
-    `;
-  
-    try {
-      const { rows } = await db.query(query, [id, section_id, name, type, width, height, thickness, extension, reduction, area, volume, weight, status]);
-  
-      // Add status history
-      const historyQuery = `
-        INSERT INTO component_status_history
-        (id, component_id, status, updated_at, updated_by, "createdAt")
-        VALUES
-        ($1, $2, $3, $4, $5, $6);
-      `;
-      const historyId = uuidv4();
-      const updatedAt = new Date();
-      await db.query(historyQuery, [historyId, id, status, updatedAt, req.user.id, updatedAt]);
-  
-      res.status(201).json(rows[0]);
-    } catch (error) {
-      if (error.code === '22P02' && error.routine === 'enum_in') {
-        console.error('Invalid enum value for status:', error);
-        res.status(400).json({ error: 'Invalid status value. Please provide a valid status.' });
-      } else {
-        console.error('Error creating component:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-      }
+      width: parseInt(width),
+      height: parseInt(height),
+      thickness: parseInt(thickness),
+      extension: parseFloat(extension),
+      reduction: parseFloat(reduction),
+      area: parseFloat(area),
+      volume: parseFloat(volume),
+      weight: parseFloat(weight),
+      status: status || 'Planning'  // Use the provided status or default to 'Planning'
+    });
+
+    console.log('Created component:', JSON.stringify(component, null, 2));
+
+    // Upload file to S3
+    const params = {
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: fileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    };
+    const command = new PutObjectCommand(params);
+    await s3.send(command);
+    fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+
+    console.log('Uploaded file to S3:', fileUrl);
+
+    // Insert the file URL into the component_files table
+    componentFile = await insertComponentFile({
+      id: uuidv4(),
+      component_id: component.id,
+      s3_url: fileUrl,
+      revision: 1,
+    });
+
+    console.log('Inserted component file:', JSON.stringify(componentFile, null, 2));
+
+    // Update the file_path in the components table
+    updatedComponent = await updateComponentFilePath(component.id, fileUrl);
+
+    console.log('Updated component with file path:', JSON.stringify(updatedComponent, null, 2));
+
+    // Add status history
+    await addComponentHistory({
+      component_id: component.id,
+      status: component.status,
+      updated_by: req.user.id,
+    });
+
+    res.status(201).json(updatedComponent);
+  } catch (error) {
+    console.error('Error in addComponent:', error);
+    let errorMessage = 'Internal Server Error';
+    let statusCode = 500;
+
+    if (error.code === '23505') {  // unique_violation
+      errorMessage = 'A component with this name already exists';
+      statusCode = 400;
+    } else if (error.code === '23503') {  // foreign_key_violation
+      errorMessage = 'Invalid section ID';
+      statusCode = 400;
     }
-  };
-  
+
+    // If component was created but file insertion failed, we should not try to delete the component
+    // as it would violate the foreign key constraint. Instead, we'll just log the error.
+    if (component && !componentFile) {
+      console.error('Component created but file insertion failed. Manual cleanup may be required.');
+      console.error('Component ID:', component.id);
+    }
+
+    res.status(statusCode).json({ error: errorMessage, details: error.message });
+  }
+};
+// Middleware to handle file upload
+const uploadFileMiddleware = upload.single('file');
 
 const getComponents = async (req, res) => {
     const { sectionId } = req.params;
@@ -95,7 +144,29 @@ const getComponents = async (req, res) => {
     }
 };
 
+const getComponentsByProjectId = async (req, res) => {
+    const { projectId } = req.params;
+    const query = `
+      SELECT c.*
+      FROM components c
+      JOIN sections s ON c.section_id = s.id
+      WHERE s.project_id = $1;
+    `;
+    try {
+      const { rows } = await db.query(query, [projectId]);
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'No components found for this project' });
+      }
+      res.json(rows);
+    } catch (error) {
+      console.error('Error fetching components:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+
 module.exports = {
     addComponent,
     getComponents,
+    getComponentsByProjectId,
+    uploadFileMiddleware: upload.single('file'),
 };
