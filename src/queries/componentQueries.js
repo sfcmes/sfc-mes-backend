@@ -94,24 +94,24 @@ const getComponentsBySectionId = async (sectionId) => {
 
 const addComponentHistory = async ({ component_id, status, updated_by }) => {
     const query = `
-        INSERT INTO component_status_history 
-        (id, component_id, status, updated_by, updated_at, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6);
+      INSERT INTO component_status_history 
+      (id, component_id, status, updated_by, updated_at, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6);
     `;
-
+  
     const id = uuidv4();
     const now = new Date();
     const values = [id, component_id, status, updated_by, now, now];
-
+  
     console.log('Executing history query with values:', values);
-
+  
     try {
-        await db.query(query, values);
+      await db.query(query, values);
     } catch (error) {
-        console.error('Error executing history query:', error);
-        throw error;
+      console.error('Error executing history query:', error);
+      throw error;
     }
-};
+  };
 
 const checkComponentExists = async (name, sectionId) => {
     const query = `
@@ -190,10 +190,28 @@ const updateComponentFilePath = async (componentId, filePath) => {
     }
 };
 
+const updateComponentInDb = async (id, updateData) => {
+    const query = `
+      UPDATE components
+      SET status = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *;
+    `;
+    const values = [updateData.status, id];
+    try {
+      const { rows } = await db.query(query, values);
+      return rows[0];
+    } catch (error) {
+      console.error('Error updating component in database:', error);
+      throw error;
+    }
+  };
+
 module.exports = {
     createComponentInDb,
     getComponentsBySectionId,
     addComponentHistory,
     checkComponentExists,
     insertComponentFile,updateComponentFilePath,
+    updateComponentInDb  ,
 };

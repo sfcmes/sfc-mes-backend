@@ -1,11 +1,14 @@
 const express = require('express');
-const { addProject, getProjects, getProject, updateProject } = require('../controllers/projectController');
+const { addProject, getProjects, getProject, updateProject, uploadProjectImage, getProjectImagesController  } = require('../controllers/projectController');
 const auth = require('../middleware/auth');
 const router = express.Router();
+const upload = require('../middleware/uploadMiddleware');
 
-router.post('/', auth, addProject);
-router.get('/', auth, getProjects);
-router.get('/:id', auth, getProject);
-router.put('/:id', auth, updateProject);
+router.post('/',  addProject);
+router.get('/',  getProjects);
+router.get('/:id',  getProject);
+router.put('/:id',  updateProject);
+router.post('/:id/images', auth, upload.single('file'), uploadProjectImage);
+router.get('/:id/images', auth, getProjectImagesController);
 
 module.exports = router;

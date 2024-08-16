@@ -8,12 +8,13 @@ const getAllUsers = async () => {
 };
 
 const getUserById = async (id) => {
-  const query = `
-    SELECT users.*, roles.name as role_name 
-    FROM users 
-    JOIN roles ON users.role_id = roles.id 
-    WHERE users.id = $1
-  `;
+  console.log("Fetching user with ID:", id);
+
+  if (!id) {
+    throw new Error("ID must be provided");
+  }
+
+  const query = "SELECT * FROM users WHERE id = $1";
   const values = [id];
 
   try {

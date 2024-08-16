@@ -41,12 +41,19 @@ const getUserProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    res.json(user);
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role_name,
+      status: user.status
+    });
   } catch (error) {
     console.error("Error retrieving user profile:", error);
     res.status(500).json({ error: "Error retrieving user profile" });
   }
 };
+
 
 const getUserProfileById = async (req, res) => {
   const { id } = req.params;

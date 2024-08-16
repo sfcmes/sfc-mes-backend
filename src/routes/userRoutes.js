@@ -4,24 +4,25 @@ const { getUserProfile, getUsers, getUserById, createUser, updateUser, deleteUse
 const auth = require('../middleware/auth');
 
 router.get('/roles', getRoles); // New route to fetch roles
-router.get('/me', auth, getUserProfile); // Define this route before the :id route
+// router.get('/me',  getUserProfile); // Define this route before the :id route
+router.get('/me', auth, getUserProfile);
 router.post('/', createUser);
-router.get('/:id', auth, getUserById); // This should be after the more specific routes
+router.get('/:id',  getUserById); // This should be after the more specific routes
 
 
 router.get('/users/roles', getRoles); // New route to fetch roles
 // GET all users
-router.get('/', auth, getUsers);
+router.get('/',  getUsers);
 
 
 // POST create a new user
-router.post('/', auth, createUser);
+router.post('/',  createUser);
 
 // PUT update an existing user
-router.put('/:id', auth, updateUser);
+router.put('/:id',  updateUser);
 
 // DELETE a user
-router.delete('/:id', auth, deleteUser);
+router.delete('/:id',  deleteUser);
 
 // GET user profile
 // router.get('/me', auth, getUserProfile); // Use /me for current user's profile

@@ -3,9 +3,9 @@ const { addSection, getSections, getSectionsByProject,getSectionById   } = requi
 const auth = require('../middleware/auth');
 const router = express.Router();
 
-router.post('/', auth, addSection);
-router.get('/', auth, getSections);
-router.get('/projects/:projectId/sections', auth, getSectionsByProject);
+router.post('/',  addSection);
+router.get('/',  getSections);
+router.get('/projects/:projectId/sections',  getSectionsByProject);
 router.get('/:sectionId', getSectionById);
 
 module.exports = router;

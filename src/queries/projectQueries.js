@@ -124,9 +124,50 @@ const updateProjectById = async (id, projectData) => {
   return rows[0];
 };
 
+const checkProjectExists = async (projectId) => {
+  const query = 'SELECT EXISTS(SELECT 1 FROM Projects WHERE id = $1)';
+  const result = await db.query(query, [projectId]);
+  return result.rows[0].exists;
+};
+
+// Function to add a new image URL for a project
+const addProjectImage = async (projectId, imageUrl) => {
+  const query = `
+    INSERT INTO project_images (project_id, image_url)
+    VALUES ($1, $2)
+    RETURNING *;
+  `;
+  const values = [projectId, imageUrl];
+  try {
+    const { rows } = await db.query(query, values);
+    return rows[0];
+  } catch (error) {
+    console.error('Error inserting project image:', error);
+    throw error;
+  }
+};
+
+// Function to get all images for a specific project
+const getProjectImages = async (projectId) => {
+  const query = `
+    SELECT * FROM project_images
+    WHERE project_id = $1;
+  `;
+  try {
+    const { rows } = await db.query(query, [projectId]);
+    return rows;
+  } catch (error) {
+    console.error('Error fetching project images:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getAllProjects,
   getProjectById,
   createProject,
   updateProjectById,
+  checkProjectExists,
+  addProjectImage,
+  getProjectImages,
 };
