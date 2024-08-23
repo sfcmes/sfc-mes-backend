@@ -1,4 +1,4 @@
-const { getAllProjects, getProjectById, createProject, updateProjectById, addProjectImage, getProjectImages } = require('../queries/projectQueries');
+const { getAllProjects, getProjectById, createProject, updateProjectById, addProjectImage, getProjectImages, deleteProjectById  } = require('../queries/projectQueries');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
@@ -111,6 +111,18 @@ const getProjectImagesController = async (req, res) => {
   }
 };
 
+const deleteProject = async (req, res) => {
+  try {
+      const projectId = req.params.id;
+      await deleteProjectById(projectId);  // This function should be defined in your projectQueries or similar
+      res.status(200).json({ message: 'Project deleted successfully' });
+  } catch (error) {
+      console.error('Error deleting project:', error);
+      res.status(500).json({ error: 'Failed to delete project' });
+  }
+};
+
+
 module.exports = {
   getProjects,
   getProject,
@@ -118,4 +130,5 @@ module.exports = {
   updateProject,
   uploadProjectImage,
   getProjectImagesController,
+  deleteProject, // Export the new delete function
 };

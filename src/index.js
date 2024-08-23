@@ -19,7 +19,8 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'https://sfcpcbackend.ngrok.app',
-  'https://sfcpcsystem.ngrok.io'
+  'https://sfcpcsystem.ngrok.io',
+  'sfc-pc.sgp1.cdn.digitaloceanspaces.com'
 ];
 
 const corsOptions = {

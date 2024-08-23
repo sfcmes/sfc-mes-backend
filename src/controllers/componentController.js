@@ -165,7 +165,8 @@ const getComponentsByProjectId = async (req, res) => {
     SELECT c.*
     FROM components c
     JOIN sections s ON c.section_id = s.id
-    WHERE s.project_id = $1;
+    WHERE s.project_id = $1
+    ORDER BY c.name;
   `;
   try {
     const { rows } = await db.query(query, [projectId]);

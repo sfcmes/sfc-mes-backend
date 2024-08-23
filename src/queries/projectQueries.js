@@ -162,6 +162,54 @@ const getProjectImages = async (projectId) => {
   }
 };
 
+const deleteProjectById = async (projectId) => {
+  try {
+      await db.query('BEGIN'); // Start a transaction
+
+      // First delete from component_status_history
+      await db.query(`
+          DELETE FROM component_status_history WHERE component_id IN (
+              SELECT id FROM components WHERE section_id IN (
+                  SELECT id FROM sections WHERE project_id = $1
+              )
+          )
+      `, [projectId]);
+
+      // Then delete from component_files
+      await db.query(`
+          DELETE FROM component_files WHERE component_id IN (
+              SELECT id FROM components WHERE section_id IN (
+                  SELECT id FROM sections WHERE project_id = $1
+              )
+          )
+      `, [projectId]);
+
+      // Then delete from components
+      await db.query(`
+          DELETE FROM components WHERE section_id IN (
+              SELECT id FROM sections WHERE project_id = $1
+          )
+      `, [projectId]);
+
+      // Then delete from sections
+      await db.query(`
+          DELETE FROM sections WHERE project_id = $1
+      `, [projectId]);
+
+      // Finally delete the project
+      await db.query(`
+          DELETE FROM projects WHERE id = $1
+      `, [projectId]);
+
+      await db.query('COMMIT'); // Commit the transaction
+  } catch (error) {
+      await db.query('ROLLBACK'); // Rollback the transaction on error
+      console.error('Error deleting project and related data:', error);
+      throw error;
+  }
+};
+
+
 module.exports = {
   getAllProjects,
   getProjectById,
@@ -170,4 +218,5 @@ module.exports = {
   checkProjectExists,
   addProjectImage,
   getProjectImages,
+  deleteProjectById,
 };
