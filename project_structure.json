@@ -1,5 +1,17 @@
 ﻿[
     {
+        "FullName":  "F:\\dev\\sfc-mes-backend\\.vscode",
+        "Name":  ".vscode",
+        "Type":  "Directory",
+        "Children":  [
+                         {
+                             "FullName":  "F:\\dev\\sfc-mes-backend\\.vscode\\settings.json",
+                             "Name":  "settings.json",
+                             "Type":  "File"
+                         }
+                     ]
+    },
+    {
         "FullName":  "F:\\dev\\sfc-mes-backend\\src",
         "Name":  "src",
         "Type":  "Directory",
@@ -12,6 +24,11 @@
                                               {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\config\\database.js",
                                                   "Name":  "database.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\config\\databaseInit.js",
+                                                  "Name":  "databaseInit.js",
                                                   "Type":  "File"
                                               }
                                           ]
@@ -67,6 +84,11 @@
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\middleware\\index.js",
                                                   "Name":  "index.js",
                                                   "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\middleware\\uploadMiddleware.js",
+                                                  "Name":  "uploadMiddleware.js",
+                                                  "Type":  "File"
                                               }
                                           ]
                          },
@@ -113,6 +135,11 @@
                                                   "Type":  "File"
                                               },
                                               {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\queries\\userQueries copy.js",
+                                                  "Name":  "userQueries copy.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\queries\\userQueries.js",
                                                   "Name":  "userQueries.js",
                                                   "Type":  "File"
@@ -135,6 +162,11 @@
                                                   "Type":  "File"
                                               },
                                               {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\downloadRoutes.js",
+                                                  "Name":  "downloadRoutes.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\index.js",
                                                   "Name":  "index.js",
                                                   "Type":  "File"
@@ -152,6 +184,11 @@
                                               {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\sectionRoutes.js",
                                                   "Name":  "sectionRoutes.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\uploadRoutes.js",
+                                                  "Name":  "uploadRoutes.js",
                                                   "Type":  "File"
                                               },
                                               {
@@ -204,6 +241,11 @@
         "Type":  "File"
     },
     {
+        "FullName":  "F:\\dev\\sfc-mes-backend\\DATABASE_SCHEMA.md",
+        "Name":  "DATABASE_SCHEMA.md",
+        "Type":  "File"
+    },
+    {
         "FullName":  "F:\\dev\\sfc-mes-backend\\generateSecret.js",
         "Name":  "generateSecret.js",
         "Type":  "File"
@@ -234,8 +276,18 @@
         "Type":  "File"
     },
     {
+        "FullName":  "F:\\dev\\sfc-mes-backend\\project_structure.json",
+        "Name":  "project_structure.json",
+        "Type":  "File"
+    },
+    {
         "FullName":  "F:\\dev\\sfc-mes-backend\\README.md",
         "Name":  "README.md",
+        "Type":  "File"
+    },
+    {
+        "FullName":  "F:\\dev\\sfc-mes-backend\\sfc_mes_schema.sql",
+        "Name":  "sfc_mes_schema.sql",
         "Type":  "File"
     }
 ]
