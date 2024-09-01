@@ -104,12 +104,14 @@ const getProjectImagesController = async (req, res) => {
 
 const deleteProject = async (req, res) => {
   try {
-      const projectId = req.params.id;
-      await deleteProjectById(projectId);
-      res.status(200).json({ message: 'Project deleted successfully' });
+    await deleteProjectById(req.params.id);
+    res.status(200).json({ message: 'Project and all associated data deleted successfully' });
   } catch (error) {
-      console.error('Error deleting project:', error);
-      res.status(500).json({ error: 'Failed to delete project' });
+    console.error('Error deleting project:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete project and its associated data', 
+      details: error.message 
+    });
   }
 };
 

@@ -7,11 +7,15 @@ const {
   updateComponentInDb,
   getLatestRevision,
   getComponentNameById,
-  deleteComponentFileRevision
+  deleteComponentFileRevision,
 } = require("../queries/componentQueries");
 const { v4: uuidv4 } = require("uuid");
 const db = require("../config/database");
-const { S3Client, PutObjectCommand, DeleteObjectCommand  } = require("@aws-sdk/client-s3");
+const {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} = require("@aws-sdk/client-s3");
 const multer = require("multer");
 
 const s3 = new S3Client({
@@ -51,11 +55,9 @@ const addComponent = async (req, res) => {
   try {
     const componentExists = await checkComponentExists(name, section_id);
     if (componentExists) {
-      return res
-        .status(400)
-        .json({
-          error: "A component with this name already exists in this section",
-        });
+      return res.status(400).json({
+        error: "A component with this name already exists in this section",
+      });
     }
 
     const file = req.file;
@@ -242,7 +244,7 @@ const updateComponent = async (req, res) => {
   const updateData = req.body;
 
   try {
-    console.log('Updating component with data:', updateData);
+    console.log("Updating component with data:", updateData);
     const updatedComponent = await updateComponentInDb(id, updateData);
     if (!updatedComponent) {
       return res.status(404).json({ error: "Component not found" });
@@ -257,11 +259,13 @@ const updateComponent = async (req, res) => {
       });
     }
 
-    console.log('Updated component:', updatedComponent);
+    console.log("Updated component:", updatedComponent);
     res.json(updatedComponent);
   } catch (error) {
     console.error("Error updating component:", error);
-    res.status(500).json({ error: "Internal server error", details: error.message });
+    res
+      .status(500)
+      .json({ error: "Internal server error", details: error.message });
   }
 };
 
@@ -270,7 +274,7 @@ const getComponentFiles = async (req, res) => {
   const componentId = req.params.componentId;
   console.log(`Fetching files for component: ${componentId}`);
   if (!componentId) {
-    return res.status(400).json({ error: 'Component ID is required' });
+    return res.status(400).json({ error: "Component ID is required" });
   }
   try {
     const query = `SELECT * FROM component_files WHERE component_id = $1 ORDER BY revision DESC;`;
@@ -278,8 +282,13 @@ const getComponentFiles = async (req, res) => {
     console.log(`Found ${rows.length} files for component ${componentId}`);
     res.json(rows);
   } catch (error) {
-    console.error('Error fetching component files:', error);
-    res.status(500).json({ error: 'Failed to fetch component files', details: error.message });
+    console.error("Error fetching component files:", error);
+    res
+      .status(500)
+      .json({
+        error: "Failed to fetch component files",
+        details: error.message,
+      });
   }
 };
 
@@ -288,52 +297,66 @@ const updateFileInRevision = async (req, res) => {
   const file = req.file;
 
   if (!file) {
-      return res.status(400).json({ error: "No file provided" });
+    return res.status(400).json({ error: "No file provided" });
   }
 
   try {
-      const existingFile = await db.query(
-          `SELECT * FROM component_files WHERE component_id = $1 AND revision = $2`,
-          [componentId, revision]
-      );
+    const existingFile = await db.query(
+      `SELECT * FROM component_files WHERE component_id = $1 AND revision = $2`,
+      [componentId, revision]
+    );
 
-      if (existingFile.rows.length === 0) {
-          return res.status(404).json({ error: "Revision not found" });
-      }
+    if (existingFile.rows.length === 0) {
+      return res.status(404).json({ error: "Revision not found" });
+    }
 
-      const oldFileUrl = existingFile.rows[0].s3_url;
-      const oldFileName = oldFileUrl.split('/').pop();
-      await s3.send(new DeleteObjectCommand({
-          Bucket: process.env.AWS_BUCKET_NAME,
-          Key: oldFileName,
-      }));
+    const oldFileUrl = existingFile.rows[0].s3_url;
+    const oldFileName = oldFileUrl.split("/").pop();
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: oldFileName,
+      })
+    );
 
-      const newFileName = `${uuidv4()}.pdf`;
-      await s3.send(new PutObjectCommand({
-          Bucket: process.env.AWS_BUCKET_NAME,
-          Key: newFileName,
-          Body: file.buffer,
-          ContentType: file.mimetype,
-      }));
+    const newFileName = `${uuidv4()}.pdf`;
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: newFileName,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      })
+    );
 
-      const newFileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${newFileName}`;
-      await db.query(
-          `UPDATE component_files SET s3_url = $1 WHERE component_id = $2 AND revision = $3`,
-          [newFileUrl, componentId, revision]
-      );
+    const newFileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${newFileName}`;
+    await db.query(
+      `UPDATE component_files SET s3_url = $1 WHERE component_id = $2 AND revision = $3`,
+      [newFileUrl, componentId, revision]
+    );
 
-      res.json({ message: "File updated successfully" });
+    res.json({ message: "File updated successfully" });
   } catch (error) {
-      console.error("Error updating file in revision:", error);
-      res.status(500).json({ error: "Internal server error" });
+    console.error("Error updating file in revision:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-
-
 const updateComponentWithFile = async (req, res) => {
   const { id } = req.params;
-  const { status, name, width, height, thickness, extension, reduction, area, volume, weight, type } = req.body;
+  const {
+    status,
+    name,
+    width,
+    height,
+    thickness,
+    extension,
+    reduction,
+    area,
+    volume,
+    weight,
+    type,
+  } = req.body;
   const file = req.file;
 
   if (!status) {
@@ -342,9 +365,21 @@ const updateComponentWithFile = async (req, res) => {
 
   try {
     // Update component details
-    const updateData = { status, name, width, height, thickness, extension, reduction, area, volume, weight, type };
+    const updateData = {
+      status,
+      name,
+      width,
+      height,
+      thickness,
+      extension,
+      reduction,
+      area,
+      volume,
+      weight,
+      type,
+    };
     const updatedComponent = await updateComponentInDb(id, updateData);
-    
+
     if (!updatedComponent) {
       return res.status(404).json({ error: "Component not found" });
     }
@@ -352,12 +387,14 @@ const updateComponentWithFile = async (req, res) => {
     // Handle file upload if provided
     if (file) {
       const newFileName = `${uuidv4()}.pdf`;
-      await s3.send(new PutObjectCommand({
-        Bucket: process.env.AWS_BUCKET_NAME,
-        Key: newFileName,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      }));
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: newFileName,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        })
+      );
 
       const newFileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${newFileName}`;
       const maxRevisionResult = await db.query(
@@ -407,7 +444,7 @@ const uploadComponentFile = async (req, res) => {
     const newRevision = latestRevision + 1;
 
     // Create the new file name
-    const fileExtension = file.originalname.split('.').pop();
+    const fileExtension = file.originalname.split(".").pop();
     const newFileName = `${componentName}_rev${newRevision}.${fileExtension}`;
 
     // Upload to S3
@@ -419,7 +456,7 @@ const uploadComponentFile = async (req, res) => {
     };
     const command = new PutObjectCommand(params);
     await s3.send(command);
-    
+
     const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${newFileName}`;
 
     // Insert the new file record
@@ -428,40 +465,47 @@ const uploadComponentFile = async (req, res) => {
       component_id: componentId,
       s3_url: fileUrl,
       revision: newRevision,
-      file_name: newFileName
+      file_name: newFileName,
     });
 
     // Fetch the updated component
     const updatedComponent = await db.query(
-      'SELECT * FROM components WHERE id = $1',
+      "SELECT * FROM components WHERE id = $1",
       [componentId]
     );
 
-    res.status(200).json({ 
-      message: "File uploaded successfully", 
+    res.status(200).json({
+      message: "File uploaded successfully",
       file: componentFile,
-      component: updatedComponent.rows[0]
+      component: updatedComponent.rows[0],
     });
   } catch (error) {
     console.error("Error uploading component file:", error);
-    res.status(500).json({ error: "Failed to upload file", details: error.message });
+    res
+      .status(500)
+      .json({ error: "Failed to upload file", details: error.message });
   }
 };
 
 const deleteFileRevision = async (req, res) => {
-  console.log('Delete file revision request params:', req.params);
-  console.log('Delete file revision request query:', req.query);
-  console.log('Delete file revision request body:', req.body);
+  console.log("Delete file revision request params:", req.params);
+  console.log("Delete file revision request query:", req.query);
+  console.log("Delete file revision request body:", req.body);
 
   const { componentId, revision } = req.params;
 
   if (!componentId || !revision) {
-    return res.status(400).json({ error: "Missing componentId or revision in the request parameters" });
+    return res
+      .status(400)
+      .json({
+        error: "Missing componentId or revision in the request parameters",
+      });
   }
 
   try {
     // Fetch the file directly from the database
-    const query = 'SELECT * FROM component_files WHERE component_id = $1 AND revision = $2';
+    const query =
+      "SELECT * FROM component_files WHERE component_id = $1 AND revision = $2";
     const { rows } = await db.query(query, [componentId, revision]);
 
     if (rows.length === 0) {
@@ -480,13 +524,195 @@ const deleteFileRevision = async (req, res) => {
     // await s3.send(deleteCommand); // Use s3 instead of s3Client
 
     // Delete from database
-    const deleteQuery = 'DELETE FROM component_files WHERE component_id = $1 AND revision = $2';
+    const deleteQuery =
+      "DELETE FROM component_files WHERE component_id = $1 AND revision = $2";
     await db.query(deleteQuery, [componentId, revision]);
 
     res.json({ message: "File revision deleted successfully" });
   } catch (error) {
     console.error("Error deleting file revision:", error);
-    res.status(500).json({ error: "Failed to delete file revision", details: error.message });
+    res
+      .status(500)
+      .json({
+        error: "Failed to delete file revision",
+        details: error.message,
+      });
+  }
+};
+
+const addPrecastComponent = async (req, res) => {
+  const {
+    section_id,
+    name,
+    width,
+    height,
+    thickness,
+    extension,
+    reduction,
+    area,
+    volume,
+    weight,
+    status,
+  } = req.body;
+
+  if (!section_id || !name) {
+    return res
+      .status(400)
+      .json({ error: "Missing required fields: section_id and name" });
+  }
+
+  try {
+    const componentExists = await checkComponentExists(name, section_id);
+    if (componentExists) {
+      return res
+        .status(400)
+        .json({
+          error: "A component with this name already exists in this section",
+        });
+    }
+
+    const file = req.file;
+    const fileName = file ? `${uuidv4()}.pdf` : null;
+    let component, fileUrl, componentFile, updatedComponent;
+
+    component = await createComponentInDb({
+      id: uuidv4(),
+      section_id,
+      name,
+      type: "precast",
+      width: parseInt(width),
+      height: parseInt(height),
+      thickness: parseInt(thickness),
+      extension: parseFloat(extension),
+      reduction: parseFloat(reduction),
+      area: parseFloat(area),
+      volume: parseFloat(volume),
+      weight: parseFloat(weight),
+      status: status || "Planning",
+    });
+
+    if (file) {
+      const params = {
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: fileName,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      };
+      const command = new PutObjectCommand(params);
+      await s3.send(command);
+      fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+
+      componentFile = await insertComponentFile({
+        id: uuidv4(),
+        component_id: component.id,
+        s3_url: fileUrl,
+        revision: 1,
+      });
+
+      updatedComponent = await updateComponentFilePath(component.id, fileUrl);
+    } else {
+      updatedComponent = component;
+    }
+
+    if (req.user) {
+      await addComponentHistory({
+        component_id: component.id,
+        status: component.status,
+        updated_by: req.user.id,
+      });
+    }
+
+    res.status(201).json(updatedComponent);
+  } catch (error) {
+    console.error("Error in addPrecastComponent:", error);
+    res
+      .status(500)
+      .json({ error: "Internal Server Error", details: error.message });
+  }
+};
+
+const addOtherComponent = async (req, res) => {
+  const { project_id, name, width, height, thickness, total_quantity } = req.body;
+
+  if (!project_id || !name || !total_quantity) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    const newComponent = await db.query(
+      `INSERT INTO other_components 
+       (project_id, name, width, height, thickness, total_quantity, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [project_id, name, width, height, thickness, total_quantity, req.user.id]
+    );
+
+    res.status(201).json(newComponent.rows[0]);
+  } catch (error) {
+    console.error('Error creating other component:', error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+
+
+const getOtherComponentsByProjectId = async (req, res) => {
+  const { projectId } = req.params;
+
+  try {
+    const { rows } = await db.query(
+      `SELECT * FROM other_components WHERE project_id = $1`,
+      [projectId]
+    );
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching other components:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const updateOtherComponent = async (req, res) => {
+  const { id } = req.params;
+  const { name, width, thickness, height, total } = req.body;
+
+  try {
+    const { rows } = await db.query(
+      `UPDATE other_components
+       SET name = $1, width = $2, thickness = $3, height = $4, total = $5, updated_by = $6, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $7
+       RETURNING *`,
+      [name, width, thickness, height, total, req.user.id, id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Other component not found" });
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error("Error updating other component:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const deleteOtherComponent = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { rowCount } = await db.query(
+      `DELETE FROM other_components WHERE id = $1`,
+      [id]
+    );
+
+    if (rowCount === 0) {
+      return res.status(404).json({ error: "Other component not found" });
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting other component:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -500,7 +726,12 @@ module.exports = {
   updateComponent,
   getComponentFiles,
   updateFileInRevision,
-  deleteFileRevision ,
+  deleteFileRevision,
   updateComponentWithFile,
   uploadComponentFile,
+  addOtherComponent,
+  addPrecastComponent,
+  getOtherComponentsByProjectId,
+  updateOtherComponent,
+  deleteOtherComponent,
 };

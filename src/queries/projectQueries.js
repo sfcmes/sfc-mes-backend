@@ -174,45 +174,59 @@ const getProjectImages = async (projectId) => {
 
 const deleteProjectById = async (projectId) => {
   try {
-      await db.query('BEGIN'); // Start a transaction
+    await db.query('BEGIN');
 
-      await db.query(`
-          DELETE FROM component_status_history WHERE component_id IN (
-              SELECT id FROM components WHERE section_id IN (
-                  SELECT id FROM sections WHERE project_id = $1
-              )
-          )
-      `, [projectId]);
+    // Delete component files
+    await db.query(`
+      DELETE FROM component_files
+      WHERE component_id IN (
+        SELECT c.id
+        FROM components c
+        JOIN sections s ON c.section_id = s.id
+        WHERE s.project_id = $1
+      )
+    `, [projectId]);
 
-      await db.query(`
-          DELETE FROM component_files WHERE component_id IN (
-              SELECT id FROM components WHERE section_id IN (
-                  SELECT id FROM sections WHERE project_id = $1
-              )
-          )
-      `, [projectId]);
+    // Delete component_status_history entries
+    await db.query(`
+      DELETE FROM component_status_history
+      WHERE component_id IN (
+        SELECT c.id
+        FROM components c
+        JOIN sections s ON c.section_id = s.id
+        WHERE s.project_id = $1
+      )
+    `, [projectId]);
 
-      await db.query(`
-          DELETE FROM components WHERE section_id IN (
-              SELECT id FROM sections WHERE project_id = $1
-          )
-      `, [projectId]);
+    // Delete components
+    await db.query(`
+      DELETE FROM components
+      WHERE section_id IN (
+        SELECT id FROM sections WHERE project_id = $1
+      )
+    `, [projectId]);
 
-      await db.query(`
-          DELETE FROM sections WHERE project_id = $1
-      `, [projectId]);
+    // Delete sections
+    await db.query('DELETE FROM sections WHERE project_id = $1', [projectId]);
 
-      await db.query(`
-          DELETE FROM projects WHERE id = $1
-      `, [projectId]);
+    // Delete project images
+    await db.query('DELETE FROM project_images WHERE project_id = $1', [projectId]);
 
-      await db.query('COMMIT'); // Commit the transaction
+    // Finally, delete the project itself
+    await db.query('DELETE FROM projects WHERE id = $1', [projectId]);
+
+    await db.query('COMMIT');
   } catch (error) {
-      await db.query('ROLLBACK'); // Rollback the transaction on error
-      console.error('Error deleting project and related data:', error);
-      throw error;
+    await db.query('ROLLBACK');
+    console.error('Error deleting project:', error);
+    throw error;
   }
 };
+
+
+
+
+
 
 module.exports = {
   getAllProjects,
