@@ -1,9 +1,8 @@
-const { getAllProjects, getProjectById, createProject, updateProjectById, addProjectImage, getProjectImages, deleteProjectById  } = require('../queries/projectQueries');
+const { getAllProjects, getProjectById, createProject, updateProjectById, addProjectImage, getProjectImages, deleteProjectById } = require('../queries/projectQueries');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 
-// Configure S3 client
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -12,7 +11,6 @@ const s3 = new S3Client({
   },
 });
 
-// Function to get all projects
 const getProjects = async (req, res) => {
   try {
     const projects = await getAllProjects();
@@ -23,7 +21,6 @@ const getProjects = async (req, res) => {
   }
 };
 
-// Function to get a project by ID
 const getProject = async (req, res) => {
   try {
     const projectId = req.params.id;
@@ -38,7 +35,6 @@ const getProject = async (req, res) => {
   }
 };
 
-// Function to create a new project
 const addProject = async (req, res) => {
   try {
     const projectData = req.body;
@@ -50,7 +46,6 @@ const addProject = async (req, res) => {
   }
 };
 
-// Function to update a project by ID
 const updateProject = async (req, res) => {
   try {
     const projectId = req.params.id;
@@ -72,10 +67,8 @@ const uploadProjectImage = async (req, res) => {
   }
 
   try {
-    // Generate a unique file name
     const fileName = `${uuidv4()}-${file.originalname}`;
     
-    // Prepare S3 upload parameters
     const params = {
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: `projects/${projectId}/${fileName}`,
@@ -83,13 +76,11 @@ const uploadProjectImage = async (req, res) => {
       ContentType: file.mimetype,
     };
 
-    // Upload to S3
     const command = new PutObjectCommand(params);
     await s3.send(command);
 
     const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/projects/${projectId}/${fileName}`;
 
-    // Store the image URL in the database
     const projectImage = await addProjectImage(projectId, imageUrl);
 
     res.status(201).json(projectImage);
@@ -114,14 +105,13 @@ const getProjectImagesController = async (req, res) => {
 const deleteProject = async (req, res) => {
   try {
       const projectId = req.params.id;
-      await deleteProjectById(projectId);  // This function should be defined in your projectQueries or similar
+      await deleteProjectById(projectId);
       res.status(200).json({ message: 'Project deleted successfully' });
   } catch (error) {
       console.error('Error deleting project:', error);
       res.status(500).json({ error: 'Failed to delete project' });
   }
 };
-
 
 module.exports = {
   getProjects,
@@ -130,5 +120,5 @@ module.exports = {
   updateProject,
   uploadProjectImage,
   getProjectImagesController,
-  deleteProject, // Export the new delete function
+  deleteProject,
 };

@@ -14,12 +14,14 @@ const createSection = async (sectionData) => {
 
 const getSectionsByProjectId = async (projectId) => {
     const query = `
-        SELECT s.*, p.name as project_name, COUNT(c.id) as components
-        FROM Sections s
-        JOIN Projects p ON s.project_id = p.id
-        LEFT JOIN Components c ON s.id = c.section_id
-        WHERE s.project_id = $1
-        GROUP BY s.id, p.name;
+        SELECT 
+            s.*
+        FROM 
+            sections s
+        WHERE 
+            s.project_id = $1
+        ORDER BY 
+            s.name;
     `;
     const result = await db.query(query, [projectId]);
     return result.rows;
@@ -43,12 +45,30 @@ const getSectionByIdFromDb = async (sectionId) => {
     return rows[0];
 };
 
+const updateSection = async (sectionId, updatedData) => {
+    const { name, project_id, status, updated_at } = updatedData;
+    const query = `
+      UPDATE Sections
+      SET name = $2, project_id = $3, status = $4, updated_at = $5
+      WHERE id = $1
+      RETURNING *;
+    `;
+    const values = [sectionId, name, project_id, status, updated_at];
+    const result = await db.query(query, values);
+    return result.rows[0];
+};
 
+const deleteSection = async (sectionId) => {
+    const query = 'DELETE FROM Sections WHERE id = $1 RETURNING *;';
+    const result = await db.query(query, [sectionId]);
+    return result.rows[0];
+};
 
 module.exports = {
     createSection,
     getSectionsByProjectId,
     getAllSections,
     getSectionByIdFromDb,
-
+    updateSection,
+    deleteSection,
 };

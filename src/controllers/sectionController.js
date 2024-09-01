@@ -1,4 +1,4 @@
-const { createSection, getSectionsByProjectId, getAllSections, getSectionByIdFromDb  } = require('../queries/sectionQueries');
+const { createSection, getSectionsByProjectId, getAllSections, getSectionByIdFromDb, updateSection, deleteSection } = require('../queries/sectionQueries');
 const { checkProjectExists } = require('../queries/projectQueries');
 const { v4: uuidv4 } = require('uuid');
 
@@ -9,7 +9,6 @@ const addSection = async (req, res) => {
             return res.status(400).json({ error: 'Name, project_id, and status are required' });
         }
 
-        // Validate project_id exists
         const projectExists = await checkProjectExists(project_id);
         if (!projectExists) {
             return res.status(404).json({ error: 'Project not found' });
@@ -50,6 +49,7 @@ const getSectionsByProject = async (req, res) => {
         res.status(500).json({ error: 'Error retrieving sections for project' });
     }
 };
+
 const getSectionById = async (req, res) => {
     const { sectionId } = req.params;
     try {
@@ -64,10 +64,44 @@ const getSectionById = async (req, res) => {
     }
 };
 
+const updateSectionById = async (req, res) => {
+    const { sectionId } = req.params;
+    const { name, project_id, status, components } = req.body;
+
+    try {
+        const updatedSection = await updateSection(sectionId, { name, project_id, status, components, updated_at: new Date() });
+        if (updatedSection) {
+            res.json({ message: 'Section updated successfully', updatedSection });
+        } else {
+            res.status(404).json({ error: 'Section not found' });
+        }
+    } catch (error) {
+        console.error('Error updating section:', error.message);
+        res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    }
+};
+
+const deleteSectionById = async (req, res) => {
+    const { sectionId } = req.params;
+
+    try {
+        const deletedSection = await deleteSection(sectionId);
+        if (deletedSection) {
+            res.json({ message: 'Section deleted successfully', deletedSection });
+        } else {
+            res.status(404).json({ error: 'Section not found' });
+        }
+    } catch (error) {
+        console.error('Error deleting section:', error.message);
+        res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    }
+};
 
 module.exports = {
     addSection,
     getSections,
     getSectionsByProject,
     getSectionById,
+    updateSectionById,
+    deleteSectionById,
 };

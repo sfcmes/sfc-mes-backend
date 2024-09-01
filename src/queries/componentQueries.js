@@ -1,89 +1,37 @@
 const db = require('../config/database');
-const { v4: uuidv4 } = require('uuid')
+const { v4: uuidv4 } = require('uuid');
 
-// const createComponentInDb = async (componentData) => {
-//     const query = `
-//         INSERT INTO Components 
-//         (id, section_id, name, type, width, height, thickness, extension, reduction, area, volume, weight, status)
-//         VALUES 
-//         ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-//         RETURNING *;
-//     `;
-//     const values = [
-//         uuidv4(),
-//         componentData.section_id,
-//         componentData.name,
-//         componentData.type,
-//         componentData.width,
-//         componentData.height,
-//         componentData.thickness,
-//         componentData.extension,
-//         componentData.reduction,
-//         componentData.area,
-//         componentData.volume,
-//         componentData.weight,
-//         componentData.status
-//     ];
+const createComponentInDb = async (componentData) => {
+  const query = `
+      INSERT INTO components 
+      (id, section_id, name, type, width, height, thickness, extension, reduction, area, volume, weight, status)
+      VALUES 
+      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *;
+  `;
+  const values = [
+      componentData.id,
+      componentData.section_id,
+      componentData.name,
+      componentData.type || null,
+      componentData.width || null,
+      componentData.height || null,
+      componentData.thickness || null,
+      componentData.extension || null,
+      componentData.reduction || null,
+      componentData.area || null,
+      componentData.volume || null,
+      componentData.weight || null,
+      componentData.status || 'planning'
+  ];
 
-//     try {
-//         const { rows } = await db.query(query, values);
-//         return rows[0];
-//     } catch (error) {
-//         console.error('Error executing query:', error);
-//         throw error;
-//     }
-// };
-const createComponentFilesTable = async () => {
-    const query = `
-      CREATE TABLE IF NOT EXISTS component_files (
-        id UUID PRIMARY KEY,
-        component_id UUID REFERENCES components(id),
-        s3_url VARCHAR(255) NOT NULL,
-        revision INT NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
-  
-    try {
-      await db.query(query);
-      console.log('component_files table created or already exists');
-    } catch (error) {
-      console.error('Error creating component_files table:', error);
+  try {
+      const { rows } = await db.query(query, values);
+      return rows[0];
+  } catch (error) {
+      console.error('Error executing query:', error);
       throw error;
-    }
-  };
-  const createComponentInDb = async (componentData) => {
-    const query = `
-        INSERT INTO components 
-        (id, section_id, name, type, width, height, thickness, extension, reduction, area, volume, weight, status)
-        VALUES 
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-        RETURNING *;
-    `;
-    const values = [
-        componentData.id,
-        componentData.section_id,
-        componentData.name,
-        componentData.type,
-        componentData.width,
-        componentData.height,
-        componentData.thickness,
-        componentData.extension,
-        componentData.reduction,
-        componentData.area,
-        componentData.volume,
-        componentData.weight,
-        componentData.status
-    ];
-
-    try {
-        const { rows } = await db.query(query, values);
-        return rows[0];
-    } catch (error) {
-        console.error('Error executing query:', error);
-        throw error;
-    }
+  }
 };
 
 const getComponentsBySectionId = async (sectionId) => {
@@ -93,25 +41,28 @@ const getComponentsBySectionId = async (sectionId) => {
 };
 
 const addComponentHistory = async ({ component_id, status, updated_by }) => {
-    const query = `
-      INSERT INTO component_status_history 
-      (id, component_id, status, updated_by, updated_at, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6);
-    `;
-  
-    const id = uuidv4();
-    const now = new Date();
-    const values = [id, component_id, status, updated_by, now, now];
-  
-    console.log('Executing history query with values:', values);
-  
-    try {
-      await db.query(query, values);
-    } catch (error) {
-      console.error('Error executing history query:', error);
-      throw error;
-    }
-  };
+  if (!status) {
+      console.warn('Attempted to add component history without status');
+      return;
+  }
+
+  const query = `
+    INSERT INTO component_status_history 
+    (id, component_id, status, updated_by, updated_at, created_at)
+    VALUES ($1, $2, $3, $4, $5, $6);
+  `;
+
+  const id = uuidv4();
+  const now = new Date();
+  const values = [id, component_id, status, updated_by, now, now];
+
+  try {
+    await db.query(query, values);
+  } catch (error) {
+    console.error('Error executing history query:', error);
+    throw error;
+  }
+};
 
 const checkComponentExists = async (name, sectionId) => {
     const query = `
@@ -124,94 +75,156 @@ const checkComponentExists = async (name, sectionId) => {
         const { rows } = await db.query(query, values);
         return rows.length > 0;
     } catch (error) {
-        console.error('Error checking component existence:', error); // More detailed logging
+        console.error('Error checking component existence:', error);
         throw error;
     }
 };
 
-const insertComponentFile = async ({ id, component_id, s3_url, revision }) => {
-    const query = `
-      INSERT INTO component_files (id, component_id, s3_url, revision)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *;
-    `;
-    const values = [id, component_id, s3_url, revision];
-  
-    console.log('Attempting to insert component file with values:', JSON.stringify(values, null, 2));
 
-    try {
-      const result = await db.query(query, values);
-      console.log('Query execution result:', JSON.stringify(result, null, 2));
-      
-      if (result.rows.length > 0) {
-        console.log('Successfully inserted component file:', JSON.stringify(result.rows[0], null, 2));
-        return result.rows[0];
-      } else {
-        throw new Error('No rows returned after insertion');
-      }
-    } catch (error) {
-      console.error('Error inserting component file:');
-      console.error('Error message:', error.message);
-      console.error('Error code:', error.code);
-      console.error('Error constraint:', error.constraint);
-      console.error('Error detail:', error.detail);
-      console.error('Error hint:', error.hint);
-      console.error('Error position:', error.position);
-      console.error('Error where:', error.where);
-      console.error('Error schema:', error.schema);
-      console.error('Error table:', error.table);
-      console.error('Error column:', error.column);
-      console.error('Error dataType:', error.dataType);
-      console.error('Full error object:', JSON.stringify(error, null, 2));
-      throw error;
-    }
-};
+// const updateComponentFilePath = async (componentId, filePath) => {
+//     const query = `
+//         UPDATE components
+//         SET file_path = $1
+//         WHERE id = $2
+//         RETURNING *;
+//     `;
+//     const values = [filePath, componentId];
 
-const updateComponentFilePath = async (componentId, filePath) => {
-    const query = `
-        UPDATE components
-        SET file_path = $1
-        WHERE id = $2
-        RETURNING *;
-    `;
-    const values = [filePath, componentId];
-
-    try {
-        const { rows } = await db.query(query, values);
-        if (rows.length > 0) {
-            console.log('Successfully updated component file path:', JSON.stringify(rows[0], null, 2));
-            return rows[0];
-        } else {
-            throw new Error('No rows returned after update');
-        }
-    } catch (error) {
-        console.error('Error updating component file path:', error);
-        throw error;
-    }
-};
+//     try {
+//         const { rows } = await db.query(query, values);
+//         return rows[0];
+//     } catch (error) {
+//         console.error('Error updating component file path:', error);
+//         throw error;
+//     }
+// };
 
 const updateComponentInDb = async (id, updateData) => {
-    const query = `
-      UPDATE components
-      SET status = $1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
-      RETURNING *;
-    `;
-    const values = [updateData.status, id];
-    try {
-      const { rows } = await db.query(query, values);
-      return rows[0];
-    } catch (error) {
-      console.error('Error updating component in database:', error);
-      throw error;
-    }
-  };
+  const fields = ['name', 'type', 'width', 'height', 'thickness', 'extension', 'reduction', 'area', 'volume', 'weight', 'status'];
+  const updates = [];
+  const values = [];
+  let paramCount = 1;
+
+  fields.forEach(field => {
+      if (updateData[field] !== undefined) {
+          updates.push(`${field} = $${paramCount}`);
+          values.push(updateData[field]);
+          paramCount++;
+      }
+  });
+
+  updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+  const query = `
+    UPDATE components
+    SET ${updates.join(', ')}
+    WHERE id = $${paramCount}
+    RETURNING *;
+  `;
+  values.push(id);
+
+  try {
+    const { rows } = await db.query(query, values);
+    return rows[0];
+  } catch (error) {
+    console.error('Error updating component in database:', error);
+    throw error;
+  }
+};
+
+const getComponentsByProjectId = async (projectId) => {
+  const query = `
+    SELECT c.*, s.name AS section_name
+    FROM components c
+    JOIN sections s ON c.section_id = s.id
+    WHERE s.project_id = $1
+    ORDER BY s.name, c.name;
+  `;
+  try {
+    const { rows } = await db.query(query, [projectId]);
+    return rows;
+  } catch (error) {
+    console.error('Error fetching components:', error);
+    throw error;
+  }
+};
+const getComponentFiles = async (componentId) => {
+  if (!componentId) {
+    throw new Error('Component ID is required');
+  }
+  const query = `SELECT * FROM component_files WHERE component_id = $1 ORDER BY revision DESC;`;
+  try {
+    const { rows } = await db.query(query, [componentId]);
+    return rows;
+  } catch (error) {
+    console.error('Error fetching component files:', error);
+    throw error;
+  }
+};
+
+const updateComponentFilePath = async (componentId, revision, newFilePath) => {
+  const query = `UPDATE component_files SET s3_url = $1 WHERE component_id = $2 AND revision = $3 RETURNING *;`;
+  const { rows } = await db.query(query, [newFilePath, componentId, revision]);
+  return rows[0];
+};
+
+const deleteComponentFileRevision = async (componentId, revision) => {
+  const query = `DELETE FROM component_files WHERE component_id = $1 AND revision = $2 RETURNING *;`;
+  try {
+    const { rows } = await db.query(query, [componentId, revision]);
+    return rows[0];
+  } catch (error) {
+    console.error('Error deleting component file revision:', error);
+    throw error;
+  }
+};
+
+const getLatestRevision = async (componentId) => {
+  const query = `
+    SELECT MAX(revision) as max_revision
+    FROM component_files
+    WHERE component_id = $1;
+  `;
+  const { rows } = await db.query(query, [componentId]);
+  return rows[0].max_revision || 0;
+};
+
+const insertComponentFile = async ({ id, component_id, s3_url, revision, file_name }) => {
+  const query = `
+    INSERT INTO component_files (id, component_id, s3_url, revision, file_name)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING *;
+  `;
+  const values = [id, component_id, s3_url, revision, file_name];
+
+  try {
+    const result = await db.query(query, values);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error inserting component file:', error);
+    throw error;
+  }
+};
+
+const getComponentNameById = async (componentId) => {
+  const query = 'SELECT name FROM components WHERE id = $1';
+  const { rows } = await db.query(query, [componentId]);
+  return rows[0]?.name;
+};
+
+
 
 module.exports = {
     createComponentInDb,
     getComponentsBySectionId,
     addComponentHistory,
     checkComponentExists,
-    insertComponentFile,updateComponentFilePath,
-    updateComponentInDb  ,
+    insertComponentFile,
+    updateComponentFilePath,
+    updateComponentInDb,
+    getComponentsByProjectId,
+    getComponentFiles,
+    deleteComponentFileRevision ,
+    getLatestRevision,
+    getComponentNameById,
 };

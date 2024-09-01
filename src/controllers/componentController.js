@@ -1,16 +1,18 @@
-const { 
-  createComponentInDb, 
-  addComponentHistory, 
-  checkComponentExists, 
-  insertComponentFile, 
+const {
+  createComponentInDb,
+  addComponentHistory,
+  checkComponentExists,
+  insertComponentFile,
   updateComponentFilePath,
-  updateComponentInDb 
-} = require('../queries/componentQueries');
-const { createTablesIfNotExist } = require('../config/databaseInit');
-const { v4: uuidv4 } = require('uuid');
-const db = require('../config/database');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const multer = require('multer');
+  updateComponentInDb,
+  getLatestRevision,
+  getComponentNameById,
+  deleteComponentFileRevision
+} = require("../queries/componentQueries");
+const { v4: uuidv4 } = require("uuid");
+const db = require("../config/database");
+const { S3Client, PutObjectCommand, DeleteObjectCommand  } = require("@aws-sdk/client-s3");
+const multer = require("multer");
 
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
@@ -23,131 +25,117 @@ const s3 = new S3Client({
 const upload = multer();
 
 const addComponent = async (req, res) => {
-  console.log('Received component data:', JSON.stringify(req.body, null, 2));
-  console.log('Received file:', req.file ? req.file.originalname : 'No file received');
-  console.log('Request headers:', req.headers);
+  // console.log("Received component data:", JSON.stringify(req.body, null, 2));
 
   const {
-      section_id,
-      name,
-      type,
-      width,
-      height,
-      thickness,
-      extension,
-      reduction,
-      area,
-      volume,
-      weight,
-      status
+    section_id,
+    name,
+    type,
+    width,
+    height,
+    thickness,
+    extension,
+    reduction,
+    area,
+    volume,
+    weight,
+    status,
   } = req.body;
 
-  // Validate required fields
-  if (!section_id || !name || !type || !width || !height || !thickness || !extension || !reduction || !area || !volume || !weight) {
-      return res.status(400).json({ error: 'Missing required fields' });
+  if (!section_id || !name) {
+    return res
+      .status(400)
+      .json({ error: "Missing required fields: section_id and name" });
   }
 
   try {
-      // Check if the component already exists
-      const componentExists = await checkComponentExists(name, section_id);
-      if (componentExists) {
-          return res.status(400).json({ error: 'A component with this name already exists in this section' });
-      }
+    const componentExists = await checkComponentExists(name, section_id);
+    if (componentExists) {
+      return res
+        .status(400)
+        .json({
+          error: "A component with this name already exists in this section",
+        });
+    }
 
-      const file = req.file;
-      const fileName = file ? `${uuidv4()}.pdf` : null;
-      let component, fileUrl, componentFile, updatedComponent;
+    const file = req.file;
+    const fileName = file ? `${uuidv4()}.pdf` : null;
+    let component, fileUrl, componentFile, updatedComponent;
 
-      // Create the component
-      component = await createComponentInDb({
-          id: uuidv4(),
-          section_id,
-          name,
-          type,
-          width: parseInt(width),
-          height: parseInt(height),
-          thickness: parseInt(thickness),
-          extension: parseFloat(extension),
-          reduction: parseFloat(reduction),
-          area: parseFloat(area),
-          volume: parseFloat(volume),
-          weight: parseFloat(weight),
-          status: status || 'Planning'
+    component = await createComponentInDb({
+      id: uuidv4(),
+      section_id,
+      name,
+      type,
+      width: parseInt(width),
+      height: parseInt(height),
+      thickness: parseInt(thickness),
+      extension: parseFloat(extension),
+      reduction: parseFloat(reduction),
+      area: parseFloat(area),
+      volume: parseFloat(volume),
+      weight: parseFloat(weight),
+      status: status || "Planning",
+    });
+
+    if (file) {
+      const params = {
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: fileName,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      };
+      const command = new PutObjectCommand(params);
+      await s3.send(command);
+      fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+
+      componentFile = await insertComponentFile({
+        id: uuidv4(),
+        component_id: component.id,
+        s3_url: fileUrl,
+        revision: 1,
       });
 
-      console.log('Created component:', JSON.stringify(component, null, 2));
+      updatedComponent = await updateComponentFilePath(component.id, fileUrl);
+    } else {
+      updatedComponent = component;
+    }
 
-      // If a file is uploaded, store it in S3 and update the component file path
-      if (file) {
-          const params = {
-              Bucket: process.env.AWS_BUCKET_NAME,
-              Key: fileName,
-              Body: file.buffer,
-              ContentType: file.mimetype,
-          };
-          const command = new PutObjectCommand(params);
-          await s3.send(command);
-          fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+    if (req.user) {
+      await addComponentHistory({
+        component_id: component.id,
+        status: component.status,
+        updated_by: req.user.id,
+      });
+    }
 
-          console.log('Uploaded file to S3:', fileUrl);
-
-          // Insert the file URL into the component_files table
-          componentFile = await insertComponentFile({
-              id: uuidv4(),
-              component_id: component.id,
-              s3_url: fileUrl,
-              revision: 1,
-          });
-
-          console.log('Inserted component file:', JSON.stringify(componentFile, null, 2));
-
-          // Update the file_path in the components table
-          updatedComponent = await updateComponentFilePath(component.id, fileUrl);
-
-          console.log('Updated component with file path:', JSON.stringify(updatedComponent, null, 2));
-      } else {
-          updatedComponent = component; // If no file, use the original component object
-      }
-
-      // Add status history
-      if (req.user) {
-          await addComponentHistory({
-              component_id: component.id,
-              status: component.status,
-              updated_by: req.user.id,
-          });
-          console.log('Added component history');
-      } else {
-          console.log('User not authenticated, skipping component history');
-      }
-
-      res.status(201).json(updatedComponent);
+    res.status(201).json(updatedComponent);
   } catch (error) {
-      console.error('Error in addComponent:', error);
-      let errorMessage = 'Internal Server Error';
-      let statusCode = 500;
+    console.error("Error in addComponent:", error);
+    let errorMessage = "Internal Server Error";
+    let statusCode = 500;
 
-      if (error.code === '23505') {  // unique_violation
-          errorMessage = 'A component with this name already exists';
-          statusCode = 400;
-      } else if (error.code === '23503') {  // foreign_key_violation
-          errorMessage = 'Invalid section ID';
-          statusCode = 400;
-      }
+    if (error.code === "23505") {
+      errorMessage = "A component with this name already exists";
+      statusCode = 400;
+    } else if (error.code === "23503") {
+      errorMessage = "Invalid section ID";
+      statusCode = 400;
+    }
 
-      // If component was created but file insertion failed, we should not try to delete the component
-      // as it would violate the foreign key constraint. Instead, we'll just log the error.
-      if (component && !componentFile) {
-          console.error('Component created but file insertion failed. Manual cleanup may be required.');
-          console.error('Component ID:', component.id);
-      }
+    if (component && !componentFile) {
+      console.error(
+        "Component created but file insertion failed. Manual cleanup may be required."
+      );
+    }
 
-      res.status(statusCode).json({ error: errorMessage, details: error.message });
+    res
+      .status(statusCode)
+      .json({ error: errorMessage, details: error.message });
   }
 };
 
-// Middleware to handle file upload
-const uploadFileMiddleware = upload.single('file');
+const uploadFileMiddleware = upload.single("file");
 
 const getComponents = async (req, res) => {
   const { sectionId } = req.params;
@@ -155,113 +143,350 @@ const getComponents = async (req, res) => {
     const components = await getComponentsBySectionId(sectionId);
     res.json(components);
   } catch (error) {
-    res.status(500).json({ error: 'Error retrieving components' });
+    res.status(500).json({ error: "Error retrieving components" });
   }
 };
 
 const getComponentsByProjectId = async (req, res) => {
   const { projectId } = req.params;
-  const query = `
-    SELECT c.*
-    FROM components c
-    JOIN sections s ON c.section_id = s.id
-    WHERE s.project_id = $1
-    ORDER BY c.name;
-  `;
   try {
-    const { rows } = await db.query(query, [projectId]);
+    const { rows } = await db.query(
+      `
+      SELECT c.*, s.name AS section_name
+      FROM components c
+      JOIN sections s ON c.section_id = s.id
+      WHERE s.project_id = $1
+      ORDER BY c.name;
+    `,
+      [projectId]
+    );
+
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'No components found for this project' });
+      return res
+        .status(404)
+        .json({ error: "No components found for this project" });
     }
     res.json(rows);
   } catch (error) {
-    console.error('Error fetching components:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error fetching components:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
 const getComponentById = async (req, res) => {
   const { id } = req.params;
   try {
-    const query = `
+    const { rows } = await db.query(
+      `
       SELECT c.*, cf.s3_url, cf.revision
       FROM components c
       LEFT JOIN component_files cf ON c.id = cf.component_id
       WHERE c.id = $1;
-    `;
-    const { rows } = await db.query(query, [id]);
+    `,
+      [id]
+    );
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Component not found' });
+      return res.status(404).json({ error: "Component not found" });
     }
-    
-    // Fetch component history
-    const historyQuery = `
+
+    const historyResult = await db.query(
+      `
       SELECT status, updated_at, updated_by
       FROM component_status_history
       WHERE component_id = $1
       ORDER BY updated_at DESC;
-    `;
-    const historyResult = await db.query(historyQuery, [id]);
-    
+    `,
+      [id]
+    );
+
     const component = rows[0];
     component.history = historyResult.rows;
-    
+
     res.json(component);
   } catch (error) {
-    console.error('Error fetching component:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error fetching component:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
 const addComponentHistoryEndpoint = async (req, res) => {
   if (!req.user || !req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized: User information missing' });
+    return res
+      .status(401)
+      .json({ error: "Unauthorized: User information missing" });
   }
 
   const { componentId, status } = req.body;
-  
+
   if (!componentId || !status) {
-    return res.status(400).json({ error: 'Missing required fields: componentId or status' });
+    return res
+      .status(400)
+      .json({ error: "Missing required fields: componentId or status" });
   }
 
   try {
     await addComponentHistory({
       component_id: componentId,
       status,
-      updated_by: req.user.id
+      updated_by: req.user.id,
     });
-    res.status(201).json({ message: 'Component history added successfully' });
+    res.status(201).json({ message: "Component history added successfully" });
   } catch (error) {
-    console.error('Error adding component history:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error adding component history:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
 const updateComponent = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
-  
-  if (!status) {
-    return res.status(400).json({ error: 'Missing required field: status' });
+  const updateData = req.body;
+
+  try {
+    console.log('Updating component with data:', updateData);
+    const updatedComponent = await updateComponentInDb(id, updateData);
+    if (!updatedComponent) {
+      return res.status(404).json({ error: "Component not found" });
+    }
+
+    // Only add history if status is provided
+    if (updateData.status) {
+      await addComponentHistory({
+        component_id: id,
+        status: updateData.status,
+        updated_by: req.user.id,
+      });
+    }
+
+    console.log('Updated component:', updatedComponent);
+    res.json(updatedComponent);
+  } catch (error) {
+    console.error("Error updating component:", error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
+  }
+};
+
+// Get all file revisions for a component
+const getComponentFiles = async (req, res) => {
+  const componentId = req.params.componentId;
+  console.log(`Fetching files for component: ${componentId}`);
+  if (!componentId) {
+    return res.status(400).json({ error: 'Component ID is required' });
+  }
+  try {
+    const query = `SELECT * FROM component_files WHERE component_id = $1 ORDER BY revision DESC;`;
+    const { rows } = await db.query(query, [componentId]);
+    console.log(`Found ${rows.length} files for component ${componentId}`);
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching component files:', error);
+    res.status(500).json({ error: 'Failed to fetch component files', details: error.message });
+  }
+};
+
+const updateFileInRevision = async (req, res) => {
+  const { componentId, revision } = req.params;
+  const file = req.file;
+
+  if (!file) {
+      return res.status(400).json({ error: "No file provided" });
   }
 
   try {
-    const updatedComponent = await updateComponentInDb(id, { status });
-    if (!updatedComponent) {
-      return res.status(404).json({ error: 'Component not found' });
-    }
+      const existingFile = await db.query(
+          `SELECT * FROM component_files WHERE component_id = $1 AND revision = $2`,
+          [componentId, revision]
+      );
+
+      if (existingFile.rows.length === 0) {
+          return res.status(404).json({ error: "Revision not found" });
+      }
+
+      const oldFileUrl = existingFile.rows[0].s3_url;
+      const oldFileName = oldFileUrl.split('/').pop();
+      await s3.send(new DeleteObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: oldFileName,
+      }));
+
+      const newFileName = `${uuidv4()}.pdf`;
+      await s3.send(new PutObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: newFileName,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+      }));
+
+      const newFileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${newFileName}`;
+      await db.query(
+          `UPDATE component_files SET s3_url = $1 WHERE component_id = $2 AND revision = $3`,
+          [newFileUrl, componentId, revision]
+      );
+
+      res.json({ message: "File updated successfully" });
+  } catch (error) {
+      console.error("Error updating file in revision:", error);
+      res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
+const updateComponentWithFile = async (req, res) => {
+  const { id } = req.params;
+  const { status, name, width, height, thickness, extension, reduction, area, volume, weight, type } = req.body;
+  const file = req.file;
+
+  if (!status) {
+    return res.status(400).json({ error: "Missing required field: status" });
+  }
+
+  try {
+    // Update component details
+    const updateData = { status, name, width, height, thickness, extension, reduction, area, volume, weight, type };
+    const updatedComponent = await updateComponentInDb(id, updateData);
     
-    // Add component history
+    if (!updatedComponent) {
+      return res.status(404).json({ error: "Component not found" });
+    }
+
+    // Handle file upload if provided
+    if (file) {
+      const newFileName = `${uuidv4()}.pdf`;
+      await s3.send(new PutObjectCommand({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: newFileName,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }));
+
+      const newFileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${newFileName}`;
+      const maxRevisionResult = await db.query(
+        `SELECT MAX(revision) as max_revision FROM component_files WHERE component_id = $1`,
+        [id]
+      );
+      const newRevision = (maxRevisionResult.rows[0].max_revision || 0) + 1;
+      await insertComponentFile({
+        id: uuidv4(),
+        component_id: id,
+        s3_url: newFileUrl,
+        revision: newRevision,
+      });
+    }
+
+    // Add history entry
     await addComponentHistory({
       component_id: id,
       status: status,
       updated_by: req.user.id,
     });
-    
+
     res.json(updatedComponent);
   } catch (error) {
-    console.error('Error updating component:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error updating component:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const uploadComponentFile = async (req, res) => {
+  const { componentId } = req.params;
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).json({ error: "No file provided" });
+  }
+
+  try {
+    // Get the component name
+    const componentName = await getComponentNameById(componentId);
+    if (!componentName) {
+      return res.status(404).json({ error: "Component not found" });
+    }
+
+    // Get the latest revision and increment it
+    const latestRevision = await getLatestRevision(componentId);
+    const newRevision = latestRevision + 1;
+
+    // Create the new file name
+    const fileExtension = file.originalname.split('.').pop();
+    const newFileName = `${componentName}_rev${newRevision}.${fileExtension}`;
+
+    // Upload to S3
+    const params = {
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: newFileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    };
+    const command = new PutObjectCommand(params);
+    await s3.send(command);
+    
+    const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${newFileName}`;
+
+    // Insert the new file record
+    const componentFile = await insertComponentFile({
+      id: uuidv4(),
+      component_id: componentId,
+      s3_url: fileUrl,
+      revision: newRevision,
+      file_name: newFileName
+    });
+
+    // Fetch the updated component
+    const updatedComponent = await db.query(
+      'SELECT * FROM components WHERE id = $1',
+      [componentId]
+    );
+
+    res.status(200).json({ 
+      message: "File uploaded successfully", 
+      file: componentFile,
+      component: updatedComponent.rows[0]
+    });
+  } catch (error) {
+    console.error("Error uploading component file:", error);
+    res.status(500).json({ error: "Failed to upload file", details: error.message });
+  }
+};
+
+const deleteFileRevision = async (req, res) => {
+  console.log('Delete file revision request params:', req.params);
+  console.log('Delete file revision request query:', req.query);
+  console.log('Delete file revision request body:', req.body);
+
+  const { componentId, revision } = req.params;
+
+  if (!componentId || !revision) {
+    return res.status(400).json({ error: "Missing componentId or revision in the request parameters" });
+  }
+
+  try {
+    // Fetch the file directly from the database
+    const query = 'SELECT * FROM component_files WHERE component_id = $1 AND revision = $2';
+    const { rows } = await db.query(query, [componentId, revision]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "File revision not found" });
+    }
+
+    // const fileToDelete = rows[0];
+
+    // // Delete from S3
+    // const fileName = fileToDelete.s3_url.split('/').pop();
+    // const deleteCommand = new DeleteObjectCommand({
+    //   Bucket: process.env.AWS_BUCKET_NAME,
+    //   Key: fileName,
+    // });
+
+    // await s3.send(deleteCommand); // Use s3 instead of s3Client
+
+    // Delete from database
+    const deleteQuery = 'DELETE FROM component_files WHERE component_id = $1 AND revision = $2';
+    await db.query(deleteQuery, [componentId, revision]);
+
+    res.json({ message: "File revision deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting file revision:", error);
+    res.status(500).json({ error: "Failed to delete file revision", details: error.message });
   }
 };
 
@@ -269,8 +494,13 @@ module.exports = {
   addComponent,
   getComponents,
   getComponentsByProjectId,
-  uploadFileMiddleware: upload.single('file'),
+  uploadFileMiddleware: upload.single("file"),
   getComponentById,
   addComponentHistory: addComponentHistoryEndpoint,
   updateComponent,
+  getComponentFiles,
+  updateFileInRevision,
+  deleteFileRevision ,
+  updateComponentWithFile,
+  uploadComponentFile,
 };

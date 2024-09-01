@@ -27,14 +27,20 @@ pool.on('connect', (client) => {
 
 const query = async (text, params) => {
   const start = Date.now();
+  let client;
   try {
-    const res = await pool.query(text, params);
+    client = await pool.connect();
+    const res = await client.query(text, params);
     const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: res.rowCount });
+    // console.log('Executed query', { text, duration, rows: res.rowCount });
     return res;
   } catch (err) {
     console.error('Error executing query', { text, error: err.message });
     throw err;
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 };
 

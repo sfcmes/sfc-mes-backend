@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const { createTablesIfNotExist } = require('./config/databaseInit');
 const corsOptions = require('./config/cors');
 const logger = require('./utils/logger');
-const { PORT, NODE_ENV, DB_HOST } = require('./config/env');
+const { PORT, NODE_ENV } = require('./config/env');
 
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
@@ -38,9 +38,6 @@ app.use('/api/sections', sectionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/components', componentRoutes);
 app.use('/api/download', downloadRoutes);
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
-});
 
 // 404 Handling
 app.use('*', (req, res) => {
@@ -62,8 +59,8 @@ async function startServer() {
     app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);
       logger.info(`Environment: ${NODE_ENV}`);
-      logger.info(`Database host: ${DB_HOST.split('.')[0]}...`); // Log only part of the hostname
-
+      logger.info(`Database host: ${process.env.DB_HOST}`);
+      
       // Log registered routes
       app._router.stack
         .filter(r => r.route)
@@ -78,12 +75,5 @@ async function startServer() {
     process.exit(1);
   }
 }
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM signal received. Closing HTTP server.');
-  // Close database connections, etc.
-  process.exit(0);
-});
 
 startServer();
