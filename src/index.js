@@ -21,11 +21,22 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logging middleware
+// Enhanced Logging Middleware
 app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.url}`, {
-    headers: req.headers,
-    body: req.body
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const logMessage = `
+    =======================
+    METHOD: ${req.method}
+    URL: ${req.originalUrl}
+    STATUS: ${res.statusCode}
+    DURATION: ${duration}ms
+    HEADERS: ${JSON.stringify(req.headers, null, 2)}
+    BODY: ${JSON.stringify(req.body, null, 2)}
+    =======================
+    `;
+    logger.info(logMessage);
   });
   next();
 });
@@ -41,13 +52,32 @@ app.use('/api/download', downloadRoutes);
 
 // 404 Handling
 app.use('*', (req, res) => {
-  logger.warn('404 - Route not found', { method: req.method, url: req.originalUrl });
+  const logMessage = `
+  =======================
+  404 - Route not found
+  METHOD: ${req.method}
+  URL: ${req.originalUrl}
+  HEADERS: ${JSON.stringify(req.headers, null, 2)}
+  BODY: ${JSON.stringify(req.body, null, 2)}
+  =======================
+  `;
+  logger.warn(logMessage);
   res.status(404).send('Route not found');
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  logger.error('Unhandled error:', { error: err.message, stack: err.stack });
+  const logMessage = `
+  =======================
+  ERROR: ${err.message}
+  STACK: ${err.stack}
+  METHOD: ${req.method}
+  URL: ${req.originalUrl}
+  HEADERS: ${JSON.stringify(req.headers, null, 2)}
+  BODY: ${JSON.stringify(req.body, null, 2)}
+  =======================
+  `;
+  logger.error(logMessage);
   res.status(500).json({ error: 'An unexpected error occurred' });
 });
 
