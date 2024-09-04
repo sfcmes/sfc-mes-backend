@@ -13,6 +13,7 @@ const componentRoutes = require('./routes/componentRoutes');
 const userRoutes = require('./routes/userRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const downloadRoutes = require('./routes/downloadRoutes');
+const otherComponentRoutes = require('./routes/otherComponentRoutes');
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/api/sections', sectionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/components', componentRoutes);
 app.use('/api/download', downloadRoutes);
+app.use('/api/other-components', otherComponentRoutes);
 
 // 404 Handling
 app.use('*', (req, res) => {

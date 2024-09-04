@@ -631,90 +631,90 @@ const addPrecastComponent = async (req, res) => {
   }
 };
 
-const addOtherComponent = async (req, res) => {
-  const { project_id, name, width, height, thickness, total_quantity } = req.body;
+// const addOtherComponent = async (req, res) => {
+//   const { project_id, name, width, height, thickness, total_quantity } = req.body;
 
-  if (!project_id || !name || !total_quantity) {
-    return res.status(400).json({ error: "Missing required fields" });
-  }
+//   if (!project_id || !name || !total_quantity) {
+//     return res.status(400).json({ error: "Missing required fields" });
+//   }
 
-  try {
-    const newComponent = await db.query(
-      `INSERT INTO other_components 
-       (project_id, name, width, height, thickness, total_quantity, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [project_id, name, width, height, thickness, total_quantity, req.user.id]
-    );
+//   try {
+//     const newComponent = await db.query(
+//       `INSERT INTO other_components 
+//        (project_id, name, width, height, thickness, total_quantity, created_by)
+//        VALUES ($1, $2, $3, $4, $5, $6, $7)
+//        RETURNING *`,
+//       [project_id, name, width, height, thickness, total_quantity, req.user.id]
+//     );
 
-    res.status(201).json(newComponent.rows[0]);
-  } catch (error) {
-    console.error('Error creating other component:', error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
+//     res.status(201).json(newComponent.rows[0]);
+//   } catch (error) {
+//     console.error('Error creating other component:', error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// };
 
 
 
-const getOtherComponentsByProjectId = async (req, res) => {
-  const { projectId } = req.params;
+// const getOtherComponentsByProjectId = async (req, res) => {
+//   const { projectId } = req.params;
 
-  try {
-    const { rows } = await db.query(
-      `SELECT * FROM other_components WHERE project_id = $1`,
-      [projectId]
-    );
+//   try {
+//     const { rows } = await db.query(
+//       `SELECT * FROM other_components WHERE project_id = $1`,
+//       [projectId]
+//     );
 
-    res.json(rows);
-  } catch (error) {
-    console.error("Error fetching other components:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
+//     res.json(rows);
+//   } catch (error) {
+//     console.error("Error fetching other components:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// };
 
-const updateOtherComponent = async (req, res) => {
-  const { id } = req.params;
-  const { name, width, thickness, height, total } = req.body;
+// const updateOtherComponent = async (req, res) => {
+//   const { id } = req.params;
+//   const { name, width, thickness, height, total } = req.body;
 
-  try {
-    const { rows } = await db.query(
-      `UPDATE other_components
-       SET name = $1, width = $2, thickness = $3, height = $4, total = $5, updated_by = $6, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $7
-       RETURNING *`,
-      [name, width, thickness, height, total, req.user.id, id]
-    );
+//   try {
+//     const { rows } = await db.query(
+//       `UPDATE other_components
+//        SET name = $1, width = $2, thickness = $3, height = $4, total = $5, updated_by = $6, updated_at = CURRENT_TIMESTAMP
+//        WHERE id = $7
+//        RETURNING *`,
+//       [name, width, thickness, height, total, req.user.id, id]
+//     );
 
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Other component not found" });
-    }
+//     if (rows.length === 0) {
+//       return res.status(404).json({ error: "Other component not found" });
+//     }
 
-    res.json(rows[0]);
-  } catch (error) {
-    console.error("Error updating other component:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
+//     res.json(rows[0]);
+//   } catch (error) {
+//     console.error("Error updating other component:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// };
 
-const deleteOtherComponent = async (req, res) => {
-  const { id } = req.params;
+// const deleteOtherComponent = async (req, res) => {
+//   const { id } = req.params;
 
-  try {
-    const { rowCount } = await db.query(
-      `DELETE FROM other_components WHERE id = $1`,
-      [id]
-    );
+//   try {
+//     const { rowCount } = await db.query(
+//       `DELETE FROM other_components WHERE id = $1`,
+//       [id]
+//     );
 
-    if (rowCount === 0) {
-      return res.status(404).json({ error: "Other component not found" });
-    }
+//     if (rowCount === 0) {
+//       return res.status(404).json({ error: "Other component not found" });
+//     }
 
-    res.status(204).send();
-  } catch (error) {
-    console.error("Error deleting other component:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
+//     res.status(204).send();
+//   } catch (error) {
+//     console.error("Error deleting other component:", error);
+//     res.status(500).json({ error: "Internal server error" });
+//   }
+// };
 
 module.exports = {
   addComponent,
@@ -729,9 +729,9 @@ module.exports = {
   deleteFileRevision,
   updateComponentWithFile,
   uploadComponentFile,
-  addOtherComponent,
+  // addOtherComponent,
   addPrecastComponent,
-  getOtherComponentsByProjectId,
-  updateOtherComponent,
-  deleteOtherComponent,
+  // getOtherComponentsByProjectId,
+  // updateOtherComponent,
+  // deleteOtherComponent,
 };

@@ -53,9 +53,9 @@ router.delete(
 // Route for adding a Precast component
 router.post("/precast", auth, uploadFileMiddleware, addPrecastComponent);
 
-router.post("/other", auth, addOtherComponent);
-router.get("/other/project/:projectId", auth, getOtherComponentsByProjectId);
-router.put("/other/:id", auth, updateOtherComponent);
-router.delete("/other/:id", auth, deleteOtherComponent);
+// router.post("/other", auth, addOtherComponent);
+// router.get("/other/project/:projectId", auth, getOtherComponentsByProjectId);
+// router.put("/other/:id", auth, updateOtherComponent);
+// router.delete("/other/:id", auth, deleteOtherComponent);
 
 module.exports = router;
