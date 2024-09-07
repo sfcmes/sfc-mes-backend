@@ -1,5 +1,5 @@
-const db = require('../config/database');
-const { v4: uuidv4 } = require('uuid');
+const db = require("../config/database");
+const { v4: uuidv4 } = require("uuid");
 
 const createComponentInDb = async (componentData) => {
   const query = `
@@ -10,40 +10,40 @@ const createComponentInDb = async (componentData) => {
       RETURNING *;
   `;
   const values = [
-      componentData.id,
-      componentData.section_id,
-      componentData.name,
-      componentData.type || null,
-      componentData.width || null,
-      componentData.height || null,
-      componentData.thickness || null,
-      componentData.extension || null,
-      componentData.reduction || null,
-      componentData.area || null,
-      componentData.volume || null,
-      componentData.weight || null,
-      componentData.status || 'planning'
+    componentData.id,
+    componentData.section_id,
+    componentData.name,
+    componentData.type || null,
+    componentData.width || null,
+    componentData.height || null,
+    componentData.thickness || null,
+    componentData.extension || null,
+    componentData.reduction || null,
+    componentData.area || null,
+    componentData.volume || null,
+    componentData.weight || null,
+    componentData.status || "planning",
   ];
 
   try {
-      const { rows } = await db.query(query, values);
-      return rows[0];
+    const { rows } = await db.query(query, values);
+    return rows[0];
   } catch (error) {
-      console.error('Error executing query:', error);
-      throw error;
+    console.error("Error executing query:", error);
+    throw error;
   }
 };
 
 const getComponentsBySectionId = async (sectionId) => {
-    const query = 'SELECT * FROM components WHERE section_id = $1';
-    const { rows } = await db.query(query, [sectionId]);
-    return rows;
+  const query = "SELECT * FROM components WHERE section_id = $1";
+  const { rows } = await db.query(query, [sectionId]);
+  return rows;
 };
 
 const addComponentHistory = async ({ component_id, status, updated_by }) => {
   if (!status) {
-      console.warn('Attempted to add component history without status');
-      return;
+    console.warn("Attempted to add component history without status");
+    return;
   }
 
   const query = `
@@ -59,27 +59,43 @@ const addComponentHistory = async ({ component_id, status, updated_by }) => {
   try {
     await db.query(query, values);
   } catch (error) {
-    console.error('Error executing history query:', error);
+    console.error("Error executing history query:", error);
+    throw error;
+  }
+};
+
+const addComponentFile = async (componentId, fileUrl) => {
+  const query = `
+    INSERT INTO component_files (id, component_id, s3_url, revision)
+    VALUES ($1, $2, $3, (SELECT COALESCE(MAX(revision), 0) + 1 FROM component_files WHERE component_id = $2))
+    RETURNING *;
+  `;
+  const values = [uuidv4(), componentId, fileUrl];
+
+  try {
+    const { rows } = await db.query(query, values);
+    return rows[0];
+  } catch (error) {
+    console.error("Error adding component file:", error);
     throw error;
   }
 };
 
 const checkComponentExists = async (name, sectionId) => {
-    const query = `
+  const query = `
         SELECT 1
         FROM Components
         WHERE name = $1 AND section_id = $2;
     `;
-    const values = [name, sectionId];
-    try {
-        const { rows } = await db.query(query, values);
-        return rows.length > 0;
-    } catch (error) {
-        console.error('Error checking component existence:', error);
-        throw error;
-    }
+  const values = [name, sectionId];
+  try {
+    const { rows } = await db.query(query, values);
+    return rows.length > 0;
+  } catch (error) {
+    console.error("Error checking component existence:", error);
+    throw error;
+  }
 };
-
 
 // const updateComponentFilePath = async (componentId, filePath) => {
 //     const query = `
@@ -100,24 +116,36 @@ const checkComponentExists = async (name, sectionId) => {
 // };
 
 const updateComponentInDb = async (id, updateData) => {
-  const fields = ['name', 'type', 'width', 'height', 'thickness', 'extension', 'reduction', 'area', 'volume', 'weight', 'status'];
+  const fields = [
+    "name",
+    "type",
+    "width",
+    "height",
+    "thickness",
+    "extension",
+    "reduction",
+    "area",
+    "volume",
+    "weight",
+    "status",
+  ];
   const updates = [];
   const values = [];
   let paramCount = 1;
 
-  fields.forEach(field => {
-      if (updateData[field] !== undefined) {
-          updates.push(`${field} = $${paramCount}`);
-          values.push(updateData[field]);
-          paramCount++;
-      }
+  fields.forEach((field) => {
+    if (updateData[field] !== undefined) {
+      updates.push(`${field} = $${paramCount}`);
+      values.push(updateData[field]);
+      paramCount++;
+    }
   });
 
   updates.push(`updated_at = CURRENT_TIMESTAMP`);
 
   const query = `
     UPDATE components
-    SET ${updates.join(', ')}
+    SET ${updates.join(", ")}
     WHERE id = $${paramCount}
     RETURNING *;
   `;
@@ -127,7 +155,7 @@ const updateComponentInDb = async (id, updateData) => {
     const { rows } = await db.query(query, values);
     return rows[0];
   } catch (error) {
-    console.error('Error updating component in database:', error);
+    console.error("Error updating component in database:", error);
     throw error;
   }
 };
@@ -144,37 +172,52 @@ const getComponentsByProjectId = async (projectId) => {
     const { rows } = await db.query(query, [projectId]);
     return rows;
   } catch (error) {
-    console.error('Error fetching components:', error);
+    console.error("Error fetching components:", error);
     throw error;
   }
 };
 const getComponentFiles = async (componentId) => {
   if (!componentId) {
-    throw new Error('Component ID is required');
+    throw new Error("Component ID is required");
   }
   const query = `SELECT * FROM component_files WHERE component_id = $1 ORDER BY revision DESC;`;
   try {
     const { rows } = await db.query(query, [componentId]);
     return rows;
   } catch (error) {
-    console.error('Error fetching component files:', error);
+    console.error("Error fetching component files:", error);
     throw error;
   }
 };
 
-const updateComponentFilePath = async (componentId, revision, newFilePath) => {
-  const query = `UPDATE component_files SET s3_url = $1 WHERE component_id = $2 AND revision = $3 RETURNING *;`;
-  const { rows } = await db.query(query, [newFilePath, componentId, revision]);
-  return rows[0];
-};
+const updateComponentFilePath = async (componentId, fileUrl) => {
+  const query = `
+    UPDATE component_files 
+    SET s3_url = $1 
+    WHERE component_id = $2 AND revision = (
+      SELECT MAX(revision) 
+      FROM component_files 
+      WHERE component_id = $2
+    )
+    RETURNING *;
+  `;
+  const values = [fileUrl, componentId];
 
+  try {
+    const { rows } = await db.query(query, values);
+    return rows[0];
+  } catch (error) {
+    console.error("Error updating component file path:", error);
+    throw error;
+  }
+};
 const deleteComponentFileRevision = async (componentId, revision) => {
   const query = `DELETE FROM component_files WHERE component_id = $1 AND revision = $2 RETURNING *;`;
   try {
     const { rows } = await db.query(query, [componentId, revision]);
     return rows[0];
   } catch (error) {
-    console.error('Error deleting component file revision:', error);
+    console.error("Error deleting component file revision:", error);
     throw error;
   }
 };
@@ -189,7 +232,13 @@ const getLatestRevision = async (componentId) => {
   return rows[0].max_revision || 0;
 };
 
-const insertComponentFile = async ({ id, component_id, s3_url, revision, file_name }) => {
+const insertComponentFile = async ({
+  id,
+  component_id,
+  s3_url,
+  revision,
+  file_name,
+}) => {
   const query = `
     INSERT INTO component_files (id, component_id, s3_url, revision, file_name)
     VALUES ($1, $2, $3, $4, $5)
@@ -201,30 +250,59 @@ const insertComponentFile = async ({ id, component_id, s3_url, revision, file_na
     const result = await db.query(query, values);
     return result.rows[0];
   } catch (error) {
-    console.error('Error inserting component file:', error);
+    console.error("Error inserting component file:", error);
     throw error;
   }
 };
 
 const getComponentNameById = async (componentId) => {
-  const query = 'SELECT name FROM components WHERE id = $1';
+  const query = "SELECT name FROM components WHERE id = $1";
   const { rows } = await db.query(query, [componentId]);
   return rows[0]?.name;
 };
 
-
+const getSectionByName = async (sectionName, client) => {
+  const query = 'SELECT * FROM sections WHERE name = $1';
+  try {
+    const { rows } = await client.query(query, [sectionName]);
+    console.log('getSectionByName result:', rows);
+    return rows[0];
+  } catch (error) {
+    console.error('Error in getSectionByName:', error);
+    throw error;
+  }
+};
+const createSection = async (sectionData, client) => {
+  const query = `
+    INSERT INTO sections (id, project_id, name, status)
+    VALUES ($1, $2, $3, $4)
+    RETURNING *;
+  `;
+  const values = [uuidv4(), sectionData.project_id, sectionData.name, 'planning'];
+  try {
+    const { rows } = await client.query(query, values);
+    console.log('createSection result:', rows[0]);
+    return rows[0];
+  } catch (error) {
+    console.error('Error in createSection:', error);
+    throw error;
+  }
+};
 
 module.exports = {
-    createComponentInDb,
-    getComponentsBySectionId,
-    addComponentHistory,
-    checkComponentExists,
-    insertComponentFile,
-    updateComponentFilePath,
-    updateComponentInDb,
-    getComponentsByProjectId,
-    getComponentFiles,
-    deleteComponentFileRevision ,
-    getLatestRevision,
-    getComponentNameById,
+  createComponentInDb,
+  getComponentsBySectionId,
+  addComponentHistory,
+  checkComponentExists,
+  insertComponentFile,
+  updateComponentFilePath,
+  updateComponentInDb,
+  getComponentsByProjectId,
+  getComponentFiles,
+  deleteComponentFileRevision,
+  getLatestRevision,
+  getComponentNameById,
+  addComponentFile,
+  getSectionByName,
+  createSection,
 };

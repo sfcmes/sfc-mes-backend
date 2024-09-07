@@ -10,13 +10,14 @@ const {
   getComponentFiles,
   updateFileInRevision,
   deleteFileRevision,
+  updateComponentWithFile,
   uploadComponentFile,
-  addOtherComponent,
-  getOtherComponentsByProjectId,
-  updateOtherComponent,
-  deleteOtherComponent,
   addPrecastComponent,
+  addComponentsBatch,
 } = require("../controllers/componentController");
+const {
+  getProjectDetailsByComponentId,
+} = require("../controllers/projectController");
 const auth = require("../middleware/auth");
 const upload = require("../middleware/uploadMiddleware");
 const router = express.Router();
@@ -26,8 +27,8 @@ router.get("/", getComponents);
 router.get("/project/:projectId", getComponentsByProjectId);
 router.get("/:id", getComponentById);
 router.post("/componentHistory", auth, addComponentHistory);
-router.put("/:id", auth, updateComponent);
-router.get("/:componentId/files", auth, getComponentFiles);
+router.put("/:id", updateComponent);
+router.get("/:componentId/files", getComponentFiles);
 router.put(
   "/:componentId/files/:revision",
   auth,
@@ -35,8 +36,6 @@ router.put(
   updateFileInRevision
 );
 router.delete("/:componentId/files/:revision", auth, deleteFileRevision);
-
-// Update this route to include the componentId parameter
 
 router.post(
   "/:componentId/upload-file",
@@ -53,9 +52,13 @@ router.delete(
 // Route for adding a Precast component
 router.post("/precast", auth, uploadFileMiddleware, addPrecastComponent);
 
-// router.post("/other", auth, addOtherComponent);
-// router.get("/other/project/:projectId", auth, getOtherComponentsByProjectId);
-// router.put("/other/:id", auth, updateOtherComponent);
-// router.delete("/other/:id", auth, deleteOtherComponent);
+// New route for batch upload
+router.post("/batch", auth, addComponentsBatch);
+
+router.get("/public/:id", getComponentById);
+router.get("/qr/:id", getComponentById);
+router.get("/:id", getComponentById);
+// New route for fetching project details by component ID
+router.get('/components/:id/project-details', getProjectDetailsByComponentId);
 
 module.exports = router;

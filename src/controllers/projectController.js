@@ -115,6 +115,30 @@ const deleteProject = async (req, res) => {
   }
 };
 
+const getProjectDetailsByComponentId = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const query = `
+      SELECT p.name as project_name, p.project_code
+      FROM components c
+      JOIN sections s ON c.section_id = s.id
+      JOIN projects p ON s.project_id = p.id
+      WHERE c.id = $1;
+    `;
+    const { rows } = await db.query(query, [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Project details not found for this component' });
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error fetching project details:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
+
 module.exports = {
   getProjects,
   getProject,
@@ -123,4 +147,5 @@ module.exports = {
   uploadProjectImage,
   getProjectImagesController,
   deleteProject,
+  getProjectDetailsByComponentId 
 };

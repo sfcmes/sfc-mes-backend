@@ -8,6 +8,9 @@ const {
   getLatestRevision,
   getComponentNameById,
   deleteComponentFileRevision,
+  addComponentFile,
+  getSectionByName,
+  createSection,
 } = require("../queries/componentQueries");
 const { v4: uuidv4 } = require("uuid");
 const db = require("../config/database");
@@ -151,6 +154,7 @@ const getComponents = async (req, res) => {
 
 const getComponentsByProjectId = async (req, res) => {
   const { projectId } = req.params;
+  console.log(`Fetching components for project: ${projectId}`);
   try {
     const { rows } = await db.query(
       `
@@ -245,17 +249,22 @@ const updateComponent = async (req, res) => {
 
   try {
     console.log("Updating component with data:", updateData);
+
+    // Perform the update in the database
     const updatedComponent = await updateComponentInDb(id, updateData);
+    
     if (!updatedComponent) {
       return res.status(404).json({ error: "Component not found" });
     }
 
     // Only add history if status is provided
     if (updateData.status) {
+      const userId = req.user && req.user.id ? req.user.id : '5adf4796-a4d9-4f8f-bd7f-8e5f2696fb4b';
+      
       await addComponentHistory({
         component_id: id,
         status: updateData.status,
-        updated_by: req.user.id,
+        updated_by: userId,
       });
     }
 
@@ -268,6 +277,7 @@ const updateComponent = async (req, res) => {
       .json({ error: "Internal server error", details: error.message });
   }
 };
+
 
 // Get all file revisions for a component
 const getComponentFiles = async (req, res) => {
@@ -283,12 +293,10 @@ const getComponentFiles = async (req, res) => {
     res.json(rows);
   } catch (error) {
     console.error("Error fetching component files:", error);
-    res
-      .status(500)
-      .json({
-        error: "Failed to fetch component files",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Failed to fetch component files",
+      details: error.message,
+    });
   }
 };
 
@@ -495,11 +503,9 @@ const deleteFileRevision = async (req, res) => {
   const { componentId, revision } = req.params;
 
   if (!componentId || !revision) {
-    return res
-      .status(400)
-      .json({
-        error: "Missing componentId or revision in the request parameters",
-      });
+    return res.status(400).json({
+      error: "Missing componentId or revision in the request parameters",
+    });
   }
 
   try {
@@ -531,12 +537,10 @@ const deleteFileRevision = async (req, res) => {
     res.json({ message: "File revision deleted successfully" });
   } catch (error) {
     console.error("Error deleting file revision:", error);
-    res
-      .status(500)
-      .json({
-        error: "Failed to delete file revision",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Failed to delete file revision",
+      details: error.message,
+    });
   }
 };
 
@@ -564,25 +568,23 @@ const addPrecastComponent = async (req, res) => {
   try {
     const componentExists = await checkComponentExists(name, section_id);
     if (componentExists) {
-      return res
-        .status(400)
-        .json({
-          error: "A component with this name already exists in this section",
-        });
+      return res.status(400).json({
+        error: "A component with this name already exists in this section",
+      });
     }
 
     const file = req.file;
     const fileName = file ? `${uuidv4()}.pdf` : null;
-    let component, fileUrl, componentFile, updatedComponent;
+    let component, fileUrl;
 
     component = await createComponentInDb({
       id: uuidv4(),
       section_id,
       name,
       type: "precast",
-      width: parseInt(width),
-      height: parseInt(height),
-      thickness: parseInt(thickness),
+      width: parseFloat(width),
+      height: parseFloat(height),
+      thickness: parseFloat(thickness),
       extension: parseFloat(extension),
       reduction: parseFloat(reduction),
       area: parseFloat(area),
@@ -602,16 +604,14 @@ const addPrecastComponent = async (req, res) => {
       await s3.send(command);
       fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
 
-      componentFile = await insertComponentFile({
-        id: uuidv4(),
-        component_id: component.id,
-        s3_url: fileUrl,
-        revision: 1,
-      });
-
-      updatedComponent = await updateComponentFilePath(component.id, fileUrl);
-    } else {
-      updatedComponent = component;
+      try {
+        await addComponentFile(component.id, fileUrl);
+      } catch (fileError) {
+        console.error("Error adding component file:", fileError);
+        // If file addition fails, we should delete the component and throw an error
+        await db.query("DELETE FROM components WHERE id = $1", [component.id]);
+        throw new Error("Failed to add component file");
+      }
     }
 
     if (req.user) {
@@ -622,7 +622,7 @@ const addPrecastComponent = async (req, res) => {
       });
     }
 
-    res.status(201).json(updatedComponent);
+    res.status(201).json(component);
   } catch (error) {
     console.error("Error in addPrecastComponent:", error);
     res
@@ -640,7 +640,7 @@ const addPrecastComponent = async (req, res) => {
 
 //   try {
 //     const newComponent = await db.query(
-//       `INSERT INTO other_components 
+//       `INSERT INTO other_components
 //        (project_id, name, width, height, thickness, total_quantity, created_by)
 //        VALUES ($1, $2, $3, $4, $5, $6, $7)
 //        RETURNING *`,
@@ -653,8 +653,6 @@ const addPrecastComponent = async (req, res) => {
 //     res.status(500).json({ error: "Internal Server Error" });
 //   }
 // };
-
-
 
 // const getOtherComponentsByProjectId = async (req, res) => {
 //   const { projectId } = req.params;
@@ -716,6 +714,83 @@ const addPrecastComponent = async (req, res) => {
 //   }
 // };
 
+const addComponentsBatch = async (req, res) => {
+  const { project_id, components } = req.body;
+
+  if (!Array.isArray(components) || components.length === 0) {
+    return res.status(400).json({ error: "Invalid input: expected an array of components" });
+  }
+
+  const client = await db.getClient();
+
+  try {
+    await client.query("BEGIN");
+
+    const createdComponents = [];
+    for (const component of components) {
+      if (!component.section_name || !component.name) {
+        throw new Error("Missing required fields: section_name and name");
+      }
+
+      // Check if section exists
+      let section = await getSectionByName(component.section_name, client);
+      if (!section) {
+        console.log(`Section not found, creating section: ${component.section_name}`);
+        section = await createSection({
+          project_id,
+          name: component.section_name,
+          status: 'planning',
+        }, client);
+      }
+
+      // Ensure section exists and has an ID
+      if (!section || !section.id) {
+        throw new Error(`Section creation failed for section: ${component.section_name}`);
+      }
+
+      const componentExists = await checkComponentExists(component.name, section.id);
+      if (componentExists) {
+        throw new Error(`A component with name "${component.name}" already exists in section "${component.section_name}"`);
+      }
+
+      const createdComponent = await createComponentInDb({
+        id: uuidv4(),
+        section_id: section.id,
+        name: component.name,
+        type: component.type,
+        width: parseFloat(component.width),
+        height: parseFloat(component.height),
+        thickness: parseFloat(component.thickness),
+        extension: parseFloat(component.extension),
+        reduction: parseFloat(component.reduction),
+        area: parseFloat(component.area),
+        volume: parseFloat(component.volume),
+        weight: parseFloat(component.weight),
+        status: component.status || "planning",
+      }, client);
+
+      createdComponents.push(createdComponent);
+    }
+
+    await client.query("COMMIT");
+    res.status(201).json({
+      message: `${createdComponents.length} components created successfully`,
+      components: createdComponents,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error during batch processing:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      details: error.message,
+      stack: error.stack,
+    });
+  } finally {
+    client.release();
+  }
+};
+
+
 module.exports = {
   addComponent,
   getComponents,
@@ -731,6 +806,7 @@ module.exports = {
   uploadComponentFile,
   // addOtherComponent,
   addPrecastComponent,
+  addComponentsBatch,
   // getOtherComponentsByProjectId,
   // updateOtherComponent,
   // deleteOtherComponent,

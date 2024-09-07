@@ -8,7 +8,7 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/projects-with-other-components', auth, getProjectsWithOtherComponents);
+router.get('/projects-with-other-components',  getProjectsWithOtherComponents);
 router.put('/:componentId/status', auth, updateOtherComponentStatus);
 router.post('/', auth, createOtherComponent);
 
