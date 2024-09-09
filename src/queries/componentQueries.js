@@ -261,10 +261,10 @@ const getComponentNameById = async (componentId) => {
   return rows[0]?.name;
 };
 
-const getSectionByName = async (sectionName, client) => {
-  const query = 'SELECT * FROM sections WHERE name = $1';
+const getSectionByName = async (sectionName, projectId, client) => {
+  const query = 'SELECT * FROM sections WHERE name = $1 AND project_id = $2';
   try {
-    const { rows } = await client.query(query, [sectionName]);
+    const { rows } = await client.query(query, [sectionName, projectId]);
     console.log('getSectionByName result:', rows);
     return rows[0];
   } catch (error) {

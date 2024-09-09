@@ -733,7 +733,7 @@ const addComponentsBatch = async (req, res) => {
       }
 
       // Check if section exists
-      let section = await getSectionByName(component.section_name, client);
+      let section = await getSectionByName(component.section_name, project_id, client);
       if (!section) {
         console.log(`Section not found, creating section: ${component.section_name}`);
         section = await createSection({

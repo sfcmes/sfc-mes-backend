@@ -64,6 +64,14 @@ const deleteSection = async (sectionId) => {
     return result.rows[0];
 };
 
+const getSectionByNameAndProjectId = async (name, projectId) => {
+    const query = 'SELECT * FROM Sections WHERE name = $1 AND project_id = $2';
+    const result = await db.query(query, [name, projectId]);
+    return result.rows[0];
+};
+
+
+
 module.exports = {
     createSection,
     getSectionsByProjectId,
@@ -71,4 +79,5 @@ module.exports = {
     getSectionByIdFromDb,
     updateSection,
     deleteSection,
+    getSectionByNameAndProjectId,
 };

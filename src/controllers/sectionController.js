@@ -1,4 +1,4 @@
-const { createSection, getSectionsByProjectId, getAllSections, getSectionByIdFromDb, updateSection, deleteSection } = require('../queries/sectionQueries');
+const { createSection, getSectionsByProjectId, getAllSections, getSectionByIdFromDb, updateSection, deleteSection, getSectionByNameAndProjectId } = require('../queries/sectionQueries');
 const { checkProjectExists } = require('../queries/projectQueries');
 const { v4: uuidv4 } = require('uuid');
 
@@ -12,6 +12,12 @@ const addSection = async (req, res) => {
         const projectExists = await checkProjectExists(project_id);
         if (!projectExists) {
             return res.status(404).json({ error: 'Project not found' });
+        }
+
+        // Check if a section with the same name already exists for this project
+        const existingSection = await getSectionByNameAndProjectId(name, project_id);
+        if (existingSection) {
+            return res.status(409).json({ error: 'A section with this name already exists in this project' });
         }
 
         const newSection = {

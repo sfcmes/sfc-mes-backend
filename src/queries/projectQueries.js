@@ -173,11 +173,15 @@ const getProjectImages = async (projectId) => {
 };
 
 const deleteProjectById = async (projectId) => {
+  const client = await db.pool.connect();
+  
   try {
-    await db.query('BEGIN');
+    await client.query('BEGIN');
 
-    // Delete component files
-    await db.query(`
+    console.log(`Starting deletion process for project ${projectId}`);
+
+    // Delete from component_files
+    await client.query(`
       DELETE FROM component_files
       WHERE component_id IN (
         SELECT c.id
@@ -186,9 +190,34 @@ const deleteProjectById = async (projectId) => {
         WHERE s.project_id = $1
       )
     `, [projectId]);
+    console.log('Deleted related component_files');
+
+    // Delete from componentfiles
+    await client.query(`
+      DELETE FROM componentfiles
+      WHERE component_id IN (
+        SELECT c.id
+        FROM components c
+        JOIN sections s ON c.section_id = s.id
+        WHERE s.project_id = $1
+      )
+    `, [projectId]);
+    console.log('Deleted related componentfiles');
+
+    // Delete componentactivities (if this table exists in your schema)
+    await client.query(`
+      DELETE FROM componentactivities
+      WHERE component_id IN (
+        SELECT c.id
+        FROM components c
+        JOIN sections s ON c.section_id = s.id
+        WHERE s.project_id = $1
+      )
+    `, [projectId]);
+    console.log('Deleted related componentactivities');
 
     // Delete component_status_history entries
-    await db.query(`
+    await client.query(`
       DELETE FROM component_status_history
       WHERE component_id IN (
         SELECT c.id
@@ -197,32 +226,41 @@ const deleteProjectById = async (projectId) => {
         WHERE s.project_id = $1
       )
     `, [projectId]);
+    console.log('Deleted component status history');
 
     // Delete components
-    await db.query(`
+    await client.query(`
       DELETE FROM components
       WHERE section_id IN (
         SELECT id FROM sections WHERE project_id = $1
       )
     `, [projectId]);
+    console.log('Deleted components');
 
     // Delete sections
-    await db.query('DELETE FROM sections WHERE project_id = $1', [projectId]);
+    await client.query('DELETE FROM sections WHERE project_id = $1', [projectId]);
+    console.log('Deleted sections');
 
     // Delete project images
-    await db.query('DELETE FROM project_images WHERE project_id = $1', [projectId]);
+    await client.query('DELETE FROM project_images WHERE project_id = $1', [projectId]);
+    console.log('Deleted project images');
 
     // Finally, delete the project itself
-    await db.query('DELETE FROM projects WHERE id = $1', [projectId]);
+    const result = await client.query('DELETE FROM projects WHERE id = $1 RETURNING *', [projectId]);
+    console.log('Deleted project');
 
-    await db.query('COMMIT');
+    await client.query('COMMIT');
+    console.log(`Successfully deleted project ${projectId}`);
+
+    return result.rows[0];
   } catch (error) {
-    await db.query('ROLLBACK');
+    await client.query('ROLLBACK');
     console.error('Error deleting project:', error);
     throw error;
+  } finally {
+    client.release();
   }
 };
-
 
 
 
