@@ -22,6 +22,11 @@
                              "Type":  "Directory",
                              "Children":  [
                                               {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\config\\cors.js",
+                                                  "Name":  "cors.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\config\\database.js",
                                                   "Name":  "database.js",
                                                   "Type":  "File"
@@ -29,6 +34,11 @@
                                               {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\config\\databaseInit.js",
                                                   "Name":  "databaseInit.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\config\\env.js",
+                                                  "Name":  "env.js",
                                                   "Type":  "File"
                                               }
                                           ]
@@ -44,8 +54,23 @@
                                                   "Type":  "File"
                                               },
                                               {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\controllers\\componentController alway good.js",
+                                                  "Name":  "componentController alway good.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\controllers\\componentController.js",
                                                   "Name":  "componentController.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\controllers\\otherComponentController copy.js",
+                                                  "Name":  "otherComponentController copy.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\controllers\\otherComponentController.js",
+                                                  "Name":  "otherComponentController.js",
                                                   "Type":  "File"
                                               },
                                               {
@@ -86,6 +111,16 @@
                                                   "Type":  "File"
                                               },
                                               {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\middleware\\logger.js",
+                                                  "Name":  "logger.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\middleware\\optionalAuth.js",
+                                                  "Name":  "optionalAuth.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\middleware\\uploadMiddleware.js",
                                                   "Name":  "uploadMiddleware.js",
                                                   "Type":  "File"
@@ -117,6 +152,11 @@
                                               {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\queries\\componentQueries.js",
                                                   "Name":  "componentQueries.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\queries\\otherComponentQueries.js",
+                                                  "Name":  "otherComponentQueries.js",
                                                   "Type":  "File"
                                               },
                                               {
@@ -157,6 +197,11 @@
                                                   "Type":  "File"
                                               },
                                               {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\componentRoutes copy.js",
+                                                  "Name":  "componentRoutes copy.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\componentRoutes.js",
                                                   "Name":  "componentRoutes.js",
                                                   "Type":  "File"
@@ -169,6 +214,16 @@
                                               {
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\index.js",
                                                   "Name":  "index.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\otherComponentRoutes copy.js",
+                                                  "Name":  "otherComponentRoutes copy.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\routes\\otherComponentRoutes.js",
+                                                  "Name":  "otherComponentRoutes.js",
                                                   "Type":  "File"
                                               },
                                               {
@@ -207,6 +262,16 @@
                                                   "FullName":  "F:\\dev\\sfc-mes-backend\\src\\utils\\index.js",
                                                   "Name":  "index.js",
                                                   "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\utils\\logger.js",
+                                                  "Name":  "logger.js",
+                                                  "Type":  "File"
+                                              },
+                                              {
+                                                  "FullName":  "F:\\dev\\sfc-mes-backend\\src\\utils\\Logger_bak.js",
+                                                  "Name":  "Logger_bak.js",
+                                                  "Type":  "File"
                                               }
                                           ]
                          },
@@ -236,6 +301,16 @@
         "Type":  "File"
     },
     {
+        "FullName":  "F:\\dev\\sfc-mes-backend\\app.log",
+        "Name":  "app.log",
+        "Type":  "File"
+    },
+    {
+        "FullName":  "F:\\dev\\sfc-mes-backend\\combined.log",
+        "Name":  "combined.log",
+        "Type":  "File"
+    },
+    {
         "FullName":  "F:\\dev\\sfc-mes-backend\\database_diagram.md",
         "Name":  "database_diagram.md",
         "Type":  "File"
@@ -243,6 +318,11 @@
     {
         "FullName":  "F:\\dev\\sfc-mes-backend\\DATABASE_SCHEMA.md",
         "Name":  "DATABASE_SCHEMA.md",
+        "Type":  "File"
+    },
+    {
+        "FullName":  "F:\\dev\\sfc-mes-backend\\error.log",
+        "Name":  "error.log",
         "Type":  "File"
     },
     {
@@ -273,11 +353,6 @@
     {
         "FullName":  "F:\\dev\\sfc-mes-backend\\package.json",
         "Name":  "package.json",
-        "Type":  "File"
-    },
-    {
-        "FullName":  "F:\\dev\\sfc-mes-backend\\project_structure.json",
-        "Name":  "project_structure.json",
         "Type":  "File"
     },
     {

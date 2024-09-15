@@ -22,43 +22,30 @@ const auth = require("../middleware/auth");
 const upload = require("../middleware/uploadMiddleware");
 const router = express.Router();
 
-router.post("/", auth, uploadFileMiddleware, addComponent);
-router.get("/", getComponents);
+// Public routes (no authentication required)
 router.get("/project/:projectId", getComponentsByProjectId);
 router.get("/:id", getComponentById);
-router.post("/componentHistory", auth, addComponentHistory);
-router.put("/:id", updateComponent);
 router.get("/:componentId/files", getComponentFiles);
+router.get("/qr/:id", getComponentById);
+router.get("/:id/project-details", getProjectDetailsByComponentId);
+
+// Protected routes (authentication required)
+router.use(auth);
+router.post("/", uploadFileMiddleware, addComponent);
+router.post("/componentHistory", addComponentHistory);
+router.put("/:id", updateComponent);
 router.put(
   "/:componentId/files/:revision",
-  auth,
   upload.single("file"),
   updateFileInRevision
 );
-router.delete("/:componentId/files/:revision", auth, deleteFileRevision);
-
+router.delete("/:componentId/files/:revision", deleteFileRevision);
 router.post(
   "/:componentId/upload-file",
-  auth,
   upload.single("file"),
   uploadComponentFile
 );
-router.delete(
-  "/components/:componentId/files/:revision",
-  auth,
-  deleteFileRevision
-);
-
-// Route for adding a Precast component
-router.post("/precast", auth, uploadFileMiddleware, addPrecastComponent);
-
-// New route for batch upload
-router.post("/batch", auth, addComponentsBatch);
-
-router.get("/public/:id", getComponentById);
-router.get("/qr/:id", getComponentById);
-router.get("/:id", getComponentById);
-// New route for fetching project details by component ID
-router.get('/components/:id/project-details', getProjectDetailsByComponentId);
+router.post("/precast", uploadFileMiddleware, addPrecastComponent);
+router.post("/batch", addComponentsBatch);
 
 module.exports = router;
