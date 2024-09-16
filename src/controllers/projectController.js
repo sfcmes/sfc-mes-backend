@@ -94,31 +94,26 @@ const deleteProjectImageController = async (req, res) => {
   const projectId = req.params.projectId;
   const imageId = req.params.imageId;
 
-  try {
-    // First, get the image details
-    const images = await getProjectImages(projectId);
-    const image = images.find(img => img.id === imageId);
+  console.log(`Attempting to delete image record ${imageId} from project ${projectId}`);
 
-    if (!image) {
-      return res.status(404).json({ error: 'Image not found' });
+  try {
+    // Delete the image record from the database
+    const deletedImage = await deleteProjectImage(projectId, imageId);
+
+    if (!deletedImage) {
+      console.log(`Image record ${imageId} not found for project ${projectId}`);
+      return res.status(404).json({ error: 'Image record not found' });
     }
 
-    // Delete the image from S3
-    const s3Key = new URL(image.image_url).pathname.slice(1); // Remove leading '/'
-    const deleteParams = {
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: s3Key,
-    };
-    const deleteCommand = new DeleteObjectCommand(deleteParams);
-    await s3.send(deleteCommand);
+    console.log(`Deleted image record: ${JSON.stringify(deletedImage)}`);
 
-    // Delete the image record from the database
-    await deleteProjectImage(projectId, imageId);
-
-    res.status(200).json({ message: 'Image deleted successfully' });
+    res.status(200).json({ message: 'Image record deleted successfully', deletedImage });
   } catch (error) {
-    console.error('Error deleting project image:', error);
-    res.status(500).json({ error: 'Error deleting project image', details: error.message });
+    console.error('Error deleting project image record:', error);
+    res.status(500).json({ 
+      error: 'Error deleting project image record', 
+      details: error.message
+    });
   }
 };
 

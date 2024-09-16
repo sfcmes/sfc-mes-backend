@@ -175,8 +175,13 @@ const getProjectImages = async (projectId) => {
 const deleteProjectImage = async (projectId, imageId) => {
   const query = 'DELETE FROM project_images WHERE project_id = $1 AND id = $2 RETURNING *';
   const values = [projectId, imageId];
-  const { rows } = await db.query(query, values);
-  return rows[0];
+  try {
+    const { rows } = await db.query(query, values);
+    return rows[0]; // This will return the deleted record, or undefined if no record was found
+  } catch (error) {
+    console.error('Error deleting project image from database:', error);
+    throw error;
+  }
 };
 
 const deleteProjectById = async (projectId) => {
