@@ -1,22 +1,35 @@
-// src/config/cors.js
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:5173', 'https://sfcpcbackend.ngrok.app'];
+  : ['http://13.251.248.92', 'http://www.sfcpcsystem.com', '*.sfcpcsystem.com'];
 
-console.log('Allowed origins:', allowedOrigins);
+const log = (message, origin) => {
+  console.log(`[${new Date().toISOString()}] CORS - ${message}`, origin ? `Origin: ${origin}` : '');
+};
+
+const isAllowedOrigin = (origin) => {
+  return allowedOrigins.some(allowedOrigin => {
+    if (allowedOrigin.includes('*')) {
+      const regex = new RegExp('^' + allowedOrigin.replace('*', '.*') + '$');
+      return regex.test(origin);
+    }
+    return allowedOrigin === origin;
+  });
+};
+
+log('Allowed origins:', allowedOrigins);
 
 module.exports = {
   origin: function (origin, callback) {
-    console.log('Received request from origin:', origin);
+    log('Received request from origin:', origin);
     if (!origin) {
-      console.log('No origin specified (e.g., same-origin request)');
+      log('No origin specified (e.g., same-origin request)');
       callback(null, true);
-    } else if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log('Origin is allowed');
+    } else if (isAllowedOrigin(origin)) {
+      log('Origin is allowed');
       callback(null, true);
     } else {
-      console.log('Origin is not allowed');
-      callback(new Error('Not allowed by CORS'));
+      log('Origin is not allowed');
+      callback(new Error(`Origin ${origin} is not allowed by CORS`));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
