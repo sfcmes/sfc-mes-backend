@@ -9,8 +9,9 @@ const auth = async (req, res, next) => {
 
     const token = req.headers.authorization && req.headers.authorization.split(' ')[1];
     if (!token) {
-        console.log('No token provided');
-        return res.status(401).json({ message: 'No token provided, authorization denied' });
+        console.log('No token provided, continuing as public request');
+        req.user = null; // Set user to null for public routes
+        return next();
     }
 
     try {
