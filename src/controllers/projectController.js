@@ -1,5 +1,5 @@
 const { getAllProjects, getProjectById, createProject, updateProjectById, addProjectImage, getProjectImages, deleteProjectById } = require('../queries/projectQueries');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 
@@ -90,6 +90,38 @@ const uploadProjectImage = async (req, res) => {
   }
 };
 
+const deleteProjectImageController = async (req, res) => {
+  const projectId = req.params.projectId;
+  const imageId = req.params.imageId;
+
+  try {
+    // First, get the image details
+    const images = await getProjectImages(projectId);
+    const image = images.find(img => img.id === imageId);
+
+    if (!image) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    // Delete the image from S3
+    const s3Key = new URL(image.image_url).pathname.slice(1); // Remove leading '/'
+    const deleteParams = {
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: s3Key,
+    };
+    const deleteCommand = new DeleteObjectCommand(deleteParams);
+    await s3.send(deleteCommand);
+
+    // Delete the image record from the database
+    await deleteProjectImage(projectId, imageId);
+
+    res.status(200).json({ message: 'Image deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting project image:', error);
+    res.status(500).json({ error: 'Error deleting project image', details: error.message });
+  }
+};
+
 const getProjectImagesController = async (req, res) => {
   const projectId = req.params.id;
 
@@ -145,6 +177,7 @@ module.exports = {
   addProject,
   updateProject,
   uploadProjectImage,
+  deleteProjectImageController,
   getProjectImagesController,
   deleteProject,
   getProjectDetailsByComponentId 

@@ -17,6 +17,7 @@ router.get('/', getProjects);
 router.get('/:id', getProject);
 router.get('/:id/images', getProjectImagesController);
 
+
 // Protected routes
 router.use(auth);
 router.post('/', addProject);

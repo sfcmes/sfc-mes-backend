@@ -172,6 +172,13 @@ const getProjectImages = async (projectId) => {
   }
 };
 
+const deleteProjectImage = async (projectId, imageId) => {
+  const query = 'DELETE FROM project_images WHERE project_id = $1 AND id = $2 RETURNING *';
+  const values = [projectId, imageId];
+  const { rows } = await db.query(query, values);
+  return rows[0];
+};
+
 const deleteProjectById = async (projectId) => {
   const client = await db.pool.connect();
   
@@ -275,4 +282,5 @@ module.exports = {
   addProjectImage,
   getProjectImages,
   deleteProjectById,
+  deleteProjectImage,
 };
