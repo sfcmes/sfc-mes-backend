@@ -28,12 +28,12 @@ router.get("/:id", getComponentById);
 router.get("/:componentId/files", getComponentFiles);
 router.get("/qr/:id", getComponentById);
 router.get("/:id/project-details", getProjectDetailsByComponentId);
+router.put("/:id", updateComponent);
 
 // Protected routes (authentication required)
 router.use(auth);
 router.post("/", uploadFileMiddleware, addComponent);
 router.post("/componentHistory", addComponentHistory);
-router.put("/:id", updateComponent);
 router.put(
   "/:componentId/files/:revision",
   upload.single("file"),

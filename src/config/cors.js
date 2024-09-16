@@ -6,7 +6,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       'http://www.sfcpcsystem.com',
       'https://www.sfcpcsystem.com',
       'http://sfcpcsystem.com',
-      'https://sfcpcsystem.com'
+      'https://sfcpcsystem.com',
+      'http://localhost:5173'
     ];
 
 const log = (message, origin) => {
