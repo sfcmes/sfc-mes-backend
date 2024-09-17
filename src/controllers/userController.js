@@ -5,11 +5,12 @@ const {
   createUser: queryCreateUser,
   updateUserById,
   deleteUserById,
-  userQueries,
   getUserById: queryGetUserById,
   getUserByEmail: queryGetUserByEmail,
-  getRoles: queryGetRoles, // Ensure this import is correct
+  getRoles: queryGetRoles,
+  findUserByUsername, // Add this line
 } = require("../queries/userQueries");
+
 const jwt = require("jsonwebtoken");
 
 const getUsers = async (req, res) => {
@@ -169,18 +170,17 @@ const getRoles = async (req, res) => {
 const checkUsername = async (req, res) => {
   try {
     const { username } = req.body;
-    const user = await userQueries.findUserByUsername(username);
-    if (user) {
-      res.json({ valid: true });
-    } else {
-      res.json({ valid: false });
-    }
+    logger.info(`Checking username: ${username}`);
+
+    const user = await findUserByUsername(username);
+    logger.info(`User found: ${!!user}`);
+
+    res.json({ valid: !!user });
   } catch (error) {
-    console.error('Error checking username:', error);
+    logger.error('Error checking username:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 
 
 module.exports = {
