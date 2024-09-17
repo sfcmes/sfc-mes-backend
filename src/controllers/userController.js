@@ -8,6 +8,7 @@ const {
   getUserById: queryGetUserById,
   getUserByEmail: queryGetUserByEmail,
   getRoles: queryGetRoles, // Ensure this import is correct
+  getUserByUsername: queryGetUserByUsername, // Add this import
 } = require("../queries/userQueries");
 const jwt = require("jsonwebtoken");
 
@@ -32,6 +33,21 @@ const getUserById = async (req, res) => {
   } catch (error) {
     console.error("Error retrieving user:", error);
     res.status(500).json({ error: "Error retrieving user" });
+  }
+};
+
+const checkUsername = async (req, res) => {
+  const { username } = req.body;
+  try {
+    const user = await queryGetUserByUsername(username);
+    if (user) {
+      res.json({ isValid: true });
+    } else {
+      res.json({ isValid: false });
+    }
+  } catch (error) {
+    console.error("Error checking username:", error);
+    res.status(500).json({ error: "Error checking username" });
   }
 };
 
@@ -165,6 +181,14 @@ const getRoles = async (req, res) => {
     res.status(500).json({ error: "Error retrieving roles" });
   }
 };
+
+const getUserByUsername = async (username) => {
+  const query = 'SELECT * FROM users WHERE username = $1';
+  const values = [username];
+  const result = await db.query(query, values);
+  return result.rows[0];
+};
+
 module.exports = {
   loginUser,
   getUserProfile,
@@ -175,4 +199,6 @@ module.exports = {
   updateUser,
   deleteUser,
   getRoles, // Export the new function
+  checkUsername, // Export the new function
+  getUserByUsername,
 };
