@@ -812,6 +812,9 @@ const updateComponentStatus = async (req, res) => {
     if (error.message.includes("User not found")) {
       return res.status(404).json({ error: error.message });
     }
+    if (error.constraint) {
+      return res.status(400).json({ error: "Constraint violation", details: error.detail });
+    }
     res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };

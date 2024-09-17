@@ -323,8 +323,8 @@ const updateComponentStatusInDb = async (id, status, username) => {
 
     // Add a new entry to the component status history
     const historyQuery = `
-      INSERT INTO component_status_history (id, component_id, status, updated_by, updated_at)
-      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP);
+      INSERT INTO component_status_history (id, component_id, status, updated_by, updated_at, created_at)
+      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
     `;
     await client.query(historyQuery, [uuidv4(), id, status, userId]);
 
