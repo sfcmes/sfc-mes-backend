@@ -1,5 +1,5 @@
 const db = require("../config/database");
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require("uuid");
 
 const getAllProjects = async () => {
   const query = `
@@ -69,30 +69,30 @@ const getProjectById = async (id) => {
     WHERE p.id = $1
     ORDER BY s.name, c.name
   `;
-  
+
   try {
     const { rows } = await db.query(query, [id]);
     if (rows.length === 0) return null;
-    
+
     const project = {
       id: rows[0].id,
       name: rows[0].name,
       project_code: rows[0].project_code,
-      sections: []
+      sections: [],
     };
 
-    rows.forEach(row => {
-      let section = project.sections.find(s => s.id === row.section_id);
+    rows.forEach((row) => {
+      let section = project.sections.find((s) => s.id === row.section_id);
       if (!section) {
         section = {
           id: row.section_id,
           name: row.section_name,
           status: row.section_status,
-          components: []
+          components: [],
         };
         project.sections.push(section);
       }
-      
+
       if (row.component_id) {
         section.components.push({
           id: row.component_id,
@@ -105,14 +105,14 @@ const getProjectById = async (id) => {
           reduction: row.reduction,
           area: row.area,
           volume: row.volume,
-          status: row.component_status
+          status: row.component_status,
         });
       }
     });
 
     return project;
   } catch (error) {
-    console.error('Error executing getProjectById query:', error);
+    console.error("Error executing getProjectById query:", error);
     throw error;
   }
 };
@@ -137,7 +137,7 @@ const updateProjectById = async (id, projectData) => {
 };
 
 const checkProjectExists = async (projectId) => {
-  const query = 'SELECT EXISTS(SELECT 1 FROM Projects WHERE id = $1)';
+  const query = "SELECT EXISTS(SELECT 1 FROM Projects WHERE id = $1)";
   const result = await db.query(query, [projectId]);
   return result.rows[0].exists;
 };
@@ -153,7 +153,7 @@ const addProjectImage = async (projectId, imageUrl) => {
     const { rows } = await db.query(query, values);
     return rows[0];
   } catch (error) {
-    console.error('Error inserting project image:', error);
+    console.error("Error inserting project image:", error);
     throw error;
   }
 };
@@ -167,33 +167,35 @@ const getProjectImages = async (projectId) => {
     const { rows } = await db.query(query, [projectId]);
     return rows;
   } catch (error) {
-    console.error('Error fetching project images:', error);
+    console.error("Error fetching project images:", error);
     throw error;
   }
 };
 
 const deleteProjectImage = async (projectId, imageId) => {
-  const query = 'DELETE FROM project_images WHERE project_id = $1 AND id = $2 RETURNING *';
+  const query =
+    "DELETE FROM project_images WHERE project_id = $1 AND id = $2 RETURNING *";
   const values = [projectId, imageId];
   try {
     const { rows } = await db.query(query, values);
     return rows[0]; // This will return the deleted record, or undefined if no record was found
   } catch (error) {
-    console.error('Error deleting project image from database:', error);
+    console.error("Error deleting project image from database:", error);
     throw error;
   }
 };
 
 const deleteProjectById = async (projectId) => {
   const client = await db.pool.connect();
-  
+
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
     console.log(`Starting deletion process for project ${projectId}`);
 
     // Delete from component_files
-    await client.query(`
+    await client.query(
+      `
       DELETE FROM component_files
       WHERE component_id IN (
         SELECT c.id
@@ -201,11 +203,14 @@ const deleteProjectById = async (projectId) => {
         JOIN sections s ON c.section_id = s.id
         WHERE s.project_id = $1
       )
-    `, [projectId]);
-    console.log('Deleted related component_files');
+    `,
+      [projectId]
+    );
+    console.log("Deleted related component_files");
 
     // Delete from componentfiles
-    await client.query(`
+    await client.query(
+      `
       DELETE FROM componentfiles
       WHERE component_id IN (
         SELECT c.id
@@ -213,11 +218,14 @@ const deleteProjectById = async (projectId) => {
         JOIN sections s ON c.section_id = s.id
         WHERE s.project_id = $1
       )
-    `, [projectId]);
-    console.log('Deleted related componentfiles');
+    `,
+      [projectId]
+    );
+    console.log("Deleted related componentfiles");
 
     // Delete componentactivities (if this table exists in your schema)
-    await client.query(`
+    await client.query(
+      `
       DELETE FROM componentactivities
       WHERE component_id IN (
         SELECT c.id
@@ -225,11 +233,14 @@ const deleteProjectById = async (projectId) => {
         JOIN sections s ON c.section_id = s.id
         WHERE s.project_id = $1
       )
-    `, [projectId]);
-    console.log('Deleted related componentactivities');
+    `,
+      [projectId]
+    );
+    console.log("Deleted related componentactivities");
 
     // Delete component_status_history entries
-    await client.query(`
+    await client.query(
+      `
       DELETE FROM component_status_history
       WHERE component_id IN (
         SELECT c.id
@@ -237,46 +248,54 @@ const deleteProjectById = async (projectId) => {
         JOIN sections s ON c.section_id = s.id
         WHERE s.project_id = $1
       )
-    `, [projectId]);
-    console.log('Deleted component status history');
+    `,
+      [projectId]
+    );
+    console.log("Deleted component status history");
 
     // Delete components
-    await client.query(`
+    await client.query(
+      `
       DELETE FROM components
       WHERE section_id IN (
         SELECT id FROM sections WHERE project_id = $1
       )
-    `, [projectId]);
-    console.log('Deleted components');
+    `,
+      [projectId]
+    );
+    console.log("Deleted components");
 
     // Delete sections
-    await client.query('DELETE FROM sections WHERE project_id = $1', [projectId]);
-    console.log('Deleted sections');
+    await client.query("DELETE FROM sections WHERE project_id = $1", [
+      projectId,
+    ]);
+    console.log("Deleted sections");
 
     // Delete project images
-    await client.query('DELETE FROM project_images WHERE project_id = $1', [projectId]);
-    console.log('Deleted project images');
+    await client.query("DELETE FROM project_images WHERE project_id = $1", [
+      projectId,
+    ]);
+    console.log("Deleted project images");
 
     // Finally, delete the project itself
-    const result = await client.query('DELETE FROM projects WHERE id = $1 RETURNING *', [projectId]);
-    console.log('Deleted project');
+    const result = await client.query(
+      "DELETE FROM projects WHERE id = $1 RETURNING *",
+      [projectId]
+    );
+    console.log("Deleted project");
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
     console.log(`Successfully deleted project ${projectId}`);
 
     return result.rows[0];
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error deleting project:', error);
+    await client.query("ROLLBACK");
+    console.error("Error deleting project:", error);
     throw error;
   } finally {
     client.release();
   }
 };
-
-
-
-
 
 module.exports = {
   getAllProjects,

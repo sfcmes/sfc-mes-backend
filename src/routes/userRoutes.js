@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getUserProfile, getUsers, getUserById, createUser, updateUser, deleteUser, getRoles  } = require('../controllers/userController');
+const { getUserProfile, getUsers, getUserById, createUser, updateUser, deleteUser, getRoles, checkUsername   } = require('../controllers/userController');
 const auth = require('../middleware/auth');
 
 router.get('/roles', getRoles); // New route to fetch roles
@@ -8,6 +8,7 @@ router.get('/roles', getRoles); // New route to fetch roles
 router.get('/me', auth, getUserProfile);
 router.post('/', createUser);
 router.get('/:id',  getUserById); // This should be after the more specific routes
+router.post('/check-username', checkUsername);
 
 
 router.get('/users/roles', getRoles); // New route to fetch roles
