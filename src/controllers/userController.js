@@ -8,7 +8,7 @@ const {
   getUserById: queryGetUserById,
   getUserByEmail: queryGetUserByEmail,
   getRoles: queryGetRoles, // Ensure this import is correct
-  getUserByUsername: queryGetUserByUsername, // Add this import
+  queryGetUserByUsername,
 } = require("../queries/userQueries");
 const jwt = require("jsonwebtoken");
 
