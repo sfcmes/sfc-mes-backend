@@ -11,6 +11,7 @@ const {
   addComponentFile,
   getSectionByName,
   createSection,
+  updateComponentStatusInDb,
 } = require("../queries/componentQueries");
 const { v4: uuidv4 } = require("uuid");
 const db = require("../config/database");
