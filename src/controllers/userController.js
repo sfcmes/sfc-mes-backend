@@ -7,10 +7,8 @@ const {
   deleteUserById,
   getUserById: queryGetUserById,
   getUserByEmail: queryGetUserByEmail,
-  getRoles: queryGetRoles,
-  findUserByUsername, // Add this line
+  getRoles: queryGetRoles, // Ensure this import is correct
 } = require("../queries/userQueries");
-
 const jwt = require("jsonwebtoken");
 
 const getUsers = async (req, res) => {
@@ -48,13 +46,14 @@ const getUserProfile = async (req, res) => {
       username: user.username,
       email: user.email,
       role: user.role_name,
-      status: user.status,
+      status: user.status
     });
   } catch (error) {
     console.error("Error retrieving user profile:", error);
     res.status(500).json({ error: "Error retrieving user profile" });
   }
 };
+
 
 const getUserProfileById = async (req, res) => {
   const { id } = req.params;
@@ -166,23 +165,6 @@ const getRoles = async (req, res) => {
     res.status(500).json({ error: "Error retrieving roles" });
   }
 };
-
-const checkUsername = async (req, res) => {
-  try {
-    const { username } = req.body;
-    logger.info(`Checking username: ${username}`);
-
-    const user = await findUserByUsername(username);
-    logger.info(`User found: ${!!user}`);
-
-    res.json({ valid: !!user });
-  } catch (error) {
-    logger.error('Error checking username:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-
 module.exports = {
   loginUser,
   getUserProfile,
@@ -193,5 +175,4 @@ module.exports = {
   updateUser,
   deleteUser,
   getRoles, // Export the new function
-  checkUsername,
 };

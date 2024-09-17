@@ -39,16 +39,11 @@ const findUserByEmail = async (email) => {
 
 const findUserByUsername = async (username) => {
   const query = "SELECT * FROM users WHERE username = $1";
-  logger.info(`Executing query: ${query} with username: ${username}`);
-  try {
-    const { rows } = await db.query(query, [username]);
-    logger.info(`Query result: ${JSON.stringify(rows)}`);
-    return rows[0];
-  } catch (error) {
-    logger.error('Error in findUserByUsername:', error);
-    throw error;
-  }
+  console.log("Executing query:", query, "with username:", username);
+  const { rows } = await db.query(query, [username]);
+  return rows[0];
 };
+
 const createUser = async (userData) => {
     const { id, username, password_hash, email, role_id, status } = userData;
     const query = 'INSERT INTO users (id, username, password_hash, email, role_id, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *';
