@@ -790,6 +790,28 @@ const addComponentsBatch = async (req, res) => {
   }
 };
 
+const updateComponentStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status, username } = req.body;
+
+  if (!status || !username) {
+    return res.status(400).json({ error: "Missing required fields: status and username" });
+  }
+
+  try {
+    const updatedComponent = await updateComponentStatusInDb(id, status, username);
+    
+    if (!updatedComponent) {
+      return res.status(404).json({ error: "Component not found" });
+    }
+
+    res.json({ message: "Component status updated successfully", component: updatedComponent });
+  } catch (error) {
+    console.error("Error updating component status:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 
 module.exports = {
   addComponent,
@@ -807,6 +829,7 @@ module.exports = {
   // addOtherComponent,
   addPrecastComponent,
   addComponentsBatch,
+  updateComponentStatus,
   // getOtherComponentsByProjectId,
   // updateOtherComponent,
   // deleteOtherComponent,

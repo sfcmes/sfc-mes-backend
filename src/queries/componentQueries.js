@@ -289,6 +289,44 @@ const createSection = async (sectionData, client) => {
   }
 };
 
+const updateComponentStatusInDb = async (id, status, username) => {
+  const client = await db.getClient();
+
+  try {
+    await client.query('BEGIN');
+
+    // Update the component status
+    const updateQuery = `
+      UPDATE components
+      SET status = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *;
+    `;
+    const { rows } = await client.query(updateQuery, [status, id]);
+
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    // Add a new entry to the component status history
+    const historyQuery = `
+      INSERT INTO component_status_history (id, component_id, status, updated_by, updated_at)
+      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP);
+    `;
+    await client.query(historyQuery, [uuidv4(), id, status, username]);
+
+    await client.query('COMMIT');
+    return rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error("Error updating component status in database:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   createComponentInDb,
   getComponentsBySectionId,
@@ -305,4 +343,5 @@ module.exports = {
   addComponentFile,
   getSectionByName,
   createSection,
+  updateComponentStatusInDb,
 };

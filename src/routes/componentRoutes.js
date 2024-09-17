@@ -14,6 +14,7 @@ const {
   uploadComponentFile,
   addPrecastComponent,
   addComponentsBatch,
+  updateComponentStatus,
 } = require("../controllers/componentController");
 const {
   getProjectDetailsByComponentId,
@@ -29,6 +30,7 @@ router.get("/:componentId/files", getComponentFiles);
 router.get("/qr/:id", getComponentById);
 router.get("/:id/project-details", getProjectDetailsByComponentId);
 router.put("/:id", updateComponent);
+router.put("/:id/status", updateComponentStatus);
 
 // Protected routes (authentication required)
 router.use(auth);
