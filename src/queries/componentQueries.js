@@ -289,6 +289,15 @@ const createSection = async (sectionData, client) => {
   }
 };
 
+const getUserIdByUsername = async (username, client) => {
+  const query = 'SELECT id FROM users WHERE username = $1';
+  const { rows } = await client.query(query, [username]);
+  if (rows.length === 0) {
+    throw new Error(`User not found with username: ${username}`);
+  }
+  return rows[0].id;
+};
+
 const updateComponentStatusInDb = async (id, status, username) => {
   const client = await db.getClient();
 
@@ -309,12 +318,15 @@ const updateComponentStatusInDb = async (id, status, username) => {
       return null;
     }
 
+    // Get the user's ID
+    const userId = await getUserIdByUsername(username, client);
+
     // Add a new entry to the component status history
     const historyQuery = `
       INSERT INTO component_status_history (id, component_id, status, updated_by, updated_at)
       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP);
     `;
-    await client.query(historyQuery, [uuidv4(), id, status, username]);
+    await client.query(historyQuery, [uuidv4(), id, status, userId]);
 
     await client.query('COMMIT');
     return rows[0];

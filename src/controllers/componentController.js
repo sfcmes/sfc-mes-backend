@@ -809,6 +809,9 @@ const updateComponentStatus = async (req, res) => {
     res.json({ message: "Component status updated successfully", component: updatedComponent });
   } catch (error) {
     console.error("Error updating component status:", error);
+    if (error.message.includes("User not found")) {
+      return res.status(404).json({ error: error.message });
+    }
     res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };
