@@ -75,6 +75,14 @@ const getRoles = async () => {
   return rows;
 };
 
+const queryGetUserByUsername = async (username) => {
+  const query = "SELECT * FROM users WHERE username = $1";
+  console.log("Executing query:", query, "with username:", username);
+  const { rows } = await db.query(query, [username]);
+  return rows[0];
+};
+
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -84,4 +92,5 @@ module.exports = {
   updateUserById,
   deleteUserById,
   getRoles,
+  queryGetUserByUsername,
 };
