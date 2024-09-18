@@ -33,9 +33,10 @@ router.get("/:id/project-details", getProjectDetailsByComponentId);
 router.put("/:id", updateComponent);
 router.put("/:id/status", updateComponentStatus);
 
+router.put("/:id/status-auth", auth, updateComponentStatusAuth);
+
 // Protected routes (authentication required)
 router.use(auth);
-router.put("/:id/status-auth", updateComponentStatusAuth);
 router.post("/", uploadFileMiddleware, addComponent);
 router.post("/componentHistory", addComponentHistory);
 router.put(
