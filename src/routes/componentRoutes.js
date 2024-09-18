@@ -15,6 +15,7 @@ const {
   addPrecastComponent,
   addComponentsBatch,
   updateComponentStatus,
+  updateComponentStatusAuth,
 } = require("../controllers/componentController");
 const {
   getProjectDetailsByComponentId,
@@ -34,6 +35,7 @@ router.put("/:id/status", updateComponentStatus);
 
 // Protected routes (authentication required)
 router.use(auth);
+router.put("/:id/status-auth", updateComponentStatusAuth);
 router.post("/", uploadFileMiddleware, addComponent);
 router.post("/componentHistory", addComponentHistory);
 router.put(

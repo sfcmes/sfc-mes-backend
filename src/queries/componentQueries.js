@@ -298,7 +298,47 @@ const getUserIdByUsername = async (username, client) => {
   return rows[0].id;
 };
 
-const updateComponentStatusInDb = async (id, status, username) => {
+// const updateComponentStatusInDb = async (id, status, username) => {
+//   const client = await db.getClient();
+
+//   try {
+//     await client.query('BEGIN');
+
+//     // Update the component status
+//     const updateQuery = `
+//       UPDATE components
+//       SET status = $1, updated_at = CURRENT_TIMESTAMP
+//       WHERE id = $2
+//       RETURNING *;
+//     `;
+//     const { rows } = await client.query(updateQuery, [status, id]);
+
+//     if (rows.length === 0) {
+//       await client.query('ROLLBACK');
+//       return null;
+//     }
+
+//     // Get the user's ID
+//     const userId = await getUserIdByUsername(username, client);
+
+//     // Add a new entry to the component status history
+//     const historyQuery = `
+//       INSERT INTO component_status_history (id, component_id, status, updated_by, updated_at, created_at)
+//       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+//     `;
+//     await client.query(historyQuery, [uuidv4(), id, status, userId]);
+
+//     await client.query('COMMIT');
+//     return rows[0];
+//   } catch (error) {
+//     await client.query('ROLLBACK');
+//     console.error("Error updating component status in database:", error);
+//     throw error;
+//   } finally {
+//     client.release();
+//   }
+// };
+const updateComponentStatusInDb = async (id, status, userIdentifier) => {
   const client = await db.getClient();
 
   try {
@@ -318,8 +358,14 @@ const updateComponentStatusInDb = async (id, status, username) => {
       return null;
     }
 
-    // Get the user's ID
-    const userId = await getUserIdByUsername(username, client);
+    let userId;
+    if (typeof userIdentifier === 'string') {
+      // It's a username, get the user ID
+      userId = await getUserIdByUsername(userIdentifier, client);
+    } else {
+      // It's already a user ID
+      userId = userIdentifier;
+    }
 
     // Add a new entry to the component status history
     const historyQuery = `
