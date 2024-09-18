@@ -359,7 +359,7 @@ const updateComponentStatusInDb = async (id, status, userIdentifier) => {
     }
 
     let userId;
-    if (typeof userIdentifier === 'string') {
+    if (typeof userIdentifier === 'string' && userIdentifier.length < 36) {
       // It's a username, get the user ID
       userId = await getUserIdByUsername(userIdentifier, client);
     } else {
