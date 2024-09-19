@@ -1,4 +1,4 @@
-const { getAllProjects, getProjectById, createProject, updateProjectById, addProjectImage, getProjectImages, deleteProjectById } = require('../queries/projectQueries');
+const { getAllProjects, getProjectById, createProject, updateProjectById, addProjectImage, getProjectImages, deleteProjectById, deleteProjectImage  } = require('../queries/projectQueries');
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
