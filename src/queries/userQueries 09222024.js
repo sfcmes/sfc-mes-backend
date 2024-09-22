@@ -82,44 +82,6 @@ const queryGetUserByUsername = async (username) => {
   return rows[0];
 };
 
-const queryAssignProjectsToUser = async (userId, projectIds) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
-
-    // ลบความสัมพันธ์เดิมทั้งหมดของผู้ใช้นี้
-    await client.query('DELETE FROM user_projects WHERE user_id = $1', [userId]);
-
-    // เพิ่มความสัมพันธ์ใหม่
-    for (const projectId of projectIds) {
-      await client.query(
-        'INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2) ON CONFLICT (user_id, project_id) DO NOTHING',
-        [userId, projectId]
-      );
-    }
-
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-};
-
-const queryGetUserByUsernameWithRole = async (username) => {
-  const query = `
-    SELECT users.*, roles.name as role_name 
-    FROM users 
-    JOIN roles ON users.role_id = roles.id 
-    WHERE users.username = $1
-  `;
-  const values = [username];
-  console.log("Executing query:", query, "with username:", username);
-  const { rows } = await db.query(query, values);
-  return rows[0];
-};
-
 
 module.exports = {
   getAllUsers,
@@ -131,6 +93,4 @@ module.exports = {
   deleteUserById,
   getRoles,
   queryGetUserByUsername,
-  queryAssignProjectsToUser,
-  queryGetUserByUsernameWithRole,
 };

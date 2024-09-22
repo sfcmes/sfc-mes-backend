@@ -9,8 +9,6 @@ const {
   getUserByEmail: queryGetUserByEmail,
   getRoles: queryGetRoles, // Ensure this import is correct
   queryGetUserByUsername,
-  queryAssignProjectsToUser,
-  queryGetUserByUsernameWithRole,
 } = require("../queries/userQueries");
 const jwt = require("jsonwebtoken");
 
@@ -88,42 +86,25 @@ const getUserProfileById = async (req, res) => {
 };
 
 const createUser = async (req, res) => {
-  const { username, password, email, roleId, projects } = req.body;
-  const status = "Active";
+  const { username, password, email, roleId } = req.body;
+  const status = "Active"; // Default status to 'Active'
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const userData = {
-      id: uuidv4(),
+      id: uuidv4(), // Generate a new UUID for the user ID
       username,
-      password_hash: hashedPassword,
+      password_hash: hashedPassword, // Store hashed password
       email,
-      role_id: roleId,
-      status,
+      role_id: roleId, // Ensure you use the correct property names as per your database schema
+      status, // Ensure status is valid
     };
     const newUser = await queryCreateUser(userData);
-    
-    // Assign projects to the user
-    if (projects && projects.length > 0) {
-      await queryAssignProjectsToUser(newUser.id, projects);
-    }
-    
-    res.status(201).json({ message: "User created successfully", user: newUser });
+    res
+      .status(201)
+      .json({ message: "User created successfully", user: newUser });
   } catch (error) {
     console.error("Error creating user:", error);
     res.status(500).json({ error: "Error creating user" });
-  }
-};
-
-// แก้ไข function นี้
-const assignProjectsToUser = async (req, res) => {
-  const { userId } = req.params;
-  const { projectIds } = req.body;
-  try {
-    await queryAssignProjectsToUser(userId, projectIds);
-    res.json({ message: "Projects assigned successfully" });
-  } catch (error) {
-    console.error("Error assigning projects to user:", error);
-    res.status(500).json({ error: "Failed to assign projects to user" });
   }
 };
 
@@ -208,27 +189,6 @@ const getUserByUsername = async (username) => {
   return result.rows[0];
 };
 
-const checkUsernameAndRole = async (req, res) => {
-  const { username } = req.body;
-  try {
-    const user = await queryGetUserByUsernameWithRole(username);
-    if (user) {
-      res.json({ 
-        isValid: true, 
-        role: user.role_name 
-      });
-    } else {
-      res.json({ 
-        isValid: false, 
-        role: null 
-      });
-    }
-  } catch (error) {
-    console.error("Error checking username and role:", error);
-    res.status(500).json({ error: "Error checking username and role" });
-  }
-};
-
 module.exports = {
   loginUser,
   getUserProfile,
@@ -241,6 +201,4 @@ module.exports = {
   getRoles, // Export the new function
   checkUsername, // Export the new function
   getUserByUsername,
-  assignProjectsToUser,
-  checkUsernameAndRole,
 };
