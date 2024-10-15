@@ -111,41 +111,20 @@ const updateOtherComponentStatus = async (componentId, fromStatus, toStatus, qua
     const fromStatusId = await getStatusIdByName(fromStatus);
     const toStatusId = await getStatusIdByName(toStatus);
 
-    // Fetch the total quantity of the component
-    const { rows: [component] } = await client.query(
-      "SELECT total_quantity FROM other_components WHERE id = $1",
-      [componentId]
-    );
-    const totalQuantity = component.total_quantity;
-
-    // Fetch current quantities for all statuses
-    const { rows: currentStatuses } = await client.query(
-      `SELECT ocs.name, ocst.quantity 
-       FROM other_component_status_tracking ocst 
-       JOIN other_component_statuses ocs ON ocst.status_id = ocs.id 
-       WHERE ocst.other_component_id = $1`,
+    // Fetch current quantities
+    const { rows: currentQuantities } = await client.query(
+      `SELECT status_id, quantity FROM other_component_status_tracking 
+       WHERE other_component_id = $1`,
       [componentId]
     );
 
-    const currentQuantities = currentStatuses.reduce((acc, status) => {
-      acc[status.name] = status.quantity;
+    const currentQuantityMap = currentQuantities.reduce((acc, { status_id, quantity }) => {
+      acc[status_id] = quantity;
       return acc;
     }, {});
 
-    // Calculate total quantity excluding 'manufactured' and 'transported'
-    const totalExcludingManufacturedAndTransported = Object.entries(currentQuantities)
-      .filter(([status]) => status !== 'manufactured' && status !== 'transported')
-      .reduce((sum, [, value]) => sum + value, 0);
-
-    // Check if the update would exceed 100% for statuses other than 'manufactured' and 'transported'
-    if (toStatus !== 'manufactured' && toStatus !== 'transported') {
-      if (totalExcludingManufacturedAndTransported - (fromStatus !== 'manufactured' && fromStatus !== 'transported' ? quantity : 0) + quantity > totalQuantity) {
-        throw new Error("Update would exceed 100% of total quantity");
-      }
-    }
-
-    // Decrease quantity in the 'from' status, except when it's 'manufactured' or 'transported'
-    if (fromStatus !== 'manufactured' && fromStatus !== 'transported') {
+    // Update quantities
+    if (fromStatus !== 'manufactured') {
       await client.query(
         `UPDATE other_component_status_tracking
          SET quantity = quantity - $1
@@ -154,49 +133,22 @@ const updateOtherComponentStatus = async (componentId, fromStatus, toStatus, qua
       );
     }
 
-    // Increase quantity in the 'to' status
-    if (toStatus === 'manufactured' || toStatus === 'transported') {
-      // For 'manufactured' and 'transported', allow exceeding 100% but cap at 100%
-      const currentToQuantity = currentQuantities[toStatus] || 0;
-      const newQuantity = Math.min(currentToQuantity + quantity, totalQuantity);
-      const actualIncrease = newQuantity - currentToQuantity;
-
-      await client.query(
-        `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (other_component_id, status_id) 
-         DO UPDATE SET quantity = LEAST(other_component_status_tracking.quantity + $3, $5)`,
-        [componentId, toStatusId, actualIncrease, userId, totalQuantity]
-      );
-
-      // If moving from 'manufactured' to 'transported', update 'manufactured' as well
-      if (fromStatus === 'manufactured' && toStatus === 'transported') {
-        await client.query(
-          `UPDATE other_component_status_tracking
-           SET quantity = LEAST(quantity + $1, $2)
-           WHERE other_component_id = $3 AND status_id = $4`,
-          [actualIncrease, totalQuantity, componentId, fromStatusId]
-        );
-      }
-    } else {
-      // For other statuses, just add the quantity
-      await client.query(
-        `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (other_component_id, status_id) 
-         DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
-        [componentId, toStatusId, quantity, userId]
-      );
-    }
-
-    // Fetch updated component data
-    const { rows: [updatedComponent] } = await client.query(
-      "SELECT * FROM other_components WHERE id = $1",
-      [componentId]
+    await client.query(
+      `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (other_component_id, status_id) 
+       DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
+      [componentId, toStatusId, quantity, userId]
     );
 
-    // Fetch updated statuses
-    const { rows: statuses } = await client.query(
+    // Calculate inProduction (for internal use only)
+    const manufactured = currentQuantityMap[await getStatusIdByName('manufactured')] || 0;
+    const transported = currentQuantityMap[await getStatusIdByName('transported')] || 0;
+    const rejected = currentQuantityMap[await getStatusIdByName('rejected')] || 0;
+    const inProduction = manufactured - transported - rejected;
+
+    // Fetch updated quantities
+    const { rows: updatedQuantities } = await client.query(
       `SELECT ocs.name, ocst.quantity 
        FROM other_component_status_tracking ocst 
        JOIN other_component_statuses ocs ON ocst.status_id = ocs.id 
@@ -206,9 +158,10 @@ const updateOtherComponentStatus = async (componentId, fromStatus, toStatus, qua
 
     await client.query("COMMIT");
 
+    // Return updated data without inProduction
     return {
-      ...updatedComponent,
-      statuses: statuses.reduce((acc, status) => ({ ...acc, [status.name]: status.quantity }), {})
+      id: componentId,
+      ...updatedQuantities.reduce((acc, { name, quantity }) => ({ ...acc, [name]: quantity }), {})
     };
   } catch (error) {
     await client.query("ROLLBACK");
