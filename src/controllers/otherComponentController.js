@@ -80,8 +80,60 @@ const createOtherComponent = async (req, res) => {
   }
 };
 
+const updateOtherComponentDetails = async (req, res) => {
+  const { componentId } = req.params;
+  const updateData = req.body;
+
+  if (!componentId || !updateData) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    const updatedComponent = await otherComponentQueries.updateOtherComponentDetails(componentId, updateData);
+    res.json(updatedComponent);
+  } catch (error) {
+    console.error("Error updating other component details:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const deleteOtherComponentById = async (req, res) => {
+  const { componentId } = req.params;
+
+  if (!componentId) {
+    return res.status(400).json({ error: "Missing component ID" });
+  }
+
+  try {
+    await otherComponentQueries.deleteOtherComponentById(componentId);
+    res.json({ message: "Component deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting other component:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const getOtherComponentsByProjectId = async (req, res) => {
+  const { projectId } = req.params;
+
+  if (!projectId) {
+    return res.status(400).json({ error: "Missing project ID" });
+  }
+
+  try {
+    const components = await otherComponentQueries.getOtherComponentsByProjectId(projectId);
+    res.json(components);
+  } catch (error) {
+    console.error("Error fetching other components by project ID:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 module.exports = {
   getProjectsWithOtherComponents,
   updateOtherComponentStatus,
   createOtherComponent,
+  updateOtherComponentDetails,
+  deleteOtherComponentById,
+  getOtherComponentsByProjectId,
 };

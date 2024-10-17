@@ -49,6 +49,54 @@ const getAllProjects = async () => {
   }
 };
 
+const getAllProjectsWithoutOther = async () => {
+  const query = `
+    SELECT 
+        p.id, 
+        p.name, 
+        p.project_code AS project_code, 
+        p.created_by, 
+        p.created_at, 
+        p.updated_at,
+        COALESCE(AVG(section_progress.progress), 0) AS progress,
+        COUNT(DISTINCT s.id) AS sections,
+        COUNT(c.id) AS components,
+        CASE 
+            WHEN COUNT(DISTINCT s.id) = 0 THEN 'planning'
+            WHEN SUM(CASE WHEN s.status = 'completed' THEN 1 ELSE 0 END) = COUNT(DISTINCT s.id) AND COUNT(DISTINCT s.id) > 0 THEN 'completed'
+            ELSE 'in_progress'
+        END as status
+    FROM projects p
+    LEFT JOIN sections s ON p.id = s.project_id
+    LEFT JOIN (
+        SELECT 
+            c.section_id, 
+            COUNT(c.id) AS total_components, 
+            SUM(CASE WHEN csh.status = 'Installed' THEN 1 ELSE 0 END) * 100.0 / COUNT(c.id) AS progress
+        FROM components c
+        LEFT JOIN (
+            SELECT 
+                csh.component_id, 
+                MAX(csh.updated_at) AS latest_update
+            FROM component_status_history csh
+            WHERE csh.status = 'Installed'
+            GROUP BY csh.component_id
+        ) latest_status ON c.id = latest_status.component_id
+        LEFT JOIN component_status_history csh ON c.id = csh.component_id AND csh.updated_at = latest_status.latest_update
+        GROUP BY c.section_id
+    ) section_progress ON s.id = section_progress.section_id
+    LEFT JOIN components c ON s.id = c.section_id
+    GROUP BY p.id
+  `;
+  try {
+    const { rows } = await db.query(query);
+    return rows;
+  } catch (error) {
+    console.error("Error executing getAllProjects query:", error);
+    throw error;
+  }
+};
+
 const getProjectById = async (id) => {
   const query = `
     SELECT 
@@ -307,4 +355,5 @@ module.exports = {
   getProjectImages,
   deleteProjectById,
   deleteProjectImage,
+  getAllProjectsWithoutOther,
 };

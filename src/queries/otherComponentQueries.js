@@ -210,9 +210,104 @@ const createOtherComponent = async (data) => {
   }
 };
 
+const updateOtherComponentDetails = async (componentId, updateData) => {
+  const client = await db.getClient();
+  try {
+    await client.query("BEGIN");
+
+    // อัปเดตข้อมูลพื้นฐานของ component
+    const { rows: [updatedComponent] } = await client.query(`
+      UPDATE other_components
+      SET name = $1, width = $2, height = $3, thickness = $4, total_quantity = $5, updated_at = CURRENT_TIMESTAMP, updated_by = $6
+      WHERE id = $7
+      RETURNING *
+    `, [updateData.name, updateData.width, updateData.height, updateData.thickness, updateData.total_quantity, updateData.updated_by, componentId]);
+
+    // ถ้ามีการเปลี่ยนแปลง total_quantity ให้รีเซ็ตสถานะ
+    if (updateData.resetStatuses) {
+      // ลบสถานะทั้งหมดของ component นี้
+      await client.query(`
+        DELETE FROM other_component_status_tracking
+        WHERE other_component_id = $1
+      `, [componentId]);
+
+      // เพิ่มสถานะ 'planning' ใหม่ด้วยจำนวนทั้งหมด
+      const planningStatusId = await getStatusIdByName('planning');
+      await client.query(`
+        INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
+        VALUES ($1, $2, $3, $4)
+      `, [componentId, planningStatusId, updateData.total_quantity, updateData.updated_by]);
+    }
+
+    // ดึงข้อมูลสถานะล่าสุด
+    const { rows: statuses } = await client.query(`
+      SELECT ocs.name, ocst.quantity 
+      FROM other_component_status_tracking ocst 
+      JOIN other_component_statuses ocs ON ocst.status_id = ocs.id 
+      WHERE ocst.other_component_id = $1
+    `, [componentId]);
+
+    await client.query("COMMIT");
+
+    return {
+      ...updatedComponent,
+      statuses: statuses.reduce((acc, status) => ({ ...acc, [status.name]: status.quantity }), {})
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error('Error in updateOtherComponentDetails:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+
+const deleteOtherComponentById = async (componentId) => {
+  const client = await db.getClient();
+  try {
+    await client.query("BEGIN");
+
+    await client.query("DELETE FROM other_component_status_tracking WHERE other_component_id = $1", [componentId]);
+    await client.query("DELETE FROM other_components WHERE id = $1", [componentId]);
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error('Error in deleteOtherComponentById:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+const getOtherComponentsByProjectId = async (projectId) => {
+  const query = `
+    SELECT 
+      oc.id, oc.name, oc.width, oc.height, oc.thickness, oc.total_quantity,
+      json_object_agg(ocs.name, ocst.quantity) as statuses
+    FROM 
+      other_components oc
+    LEFT JOIN 
+      other_component_status_tracking ocst ON oc.id = ocst.other_component_id
+    LEFT JOIN 
+      other_component_statuses ocs ON ocst.status_id = ocs.id
+    WHERE 
+      oc.project_id = $1
+    GROUP BY 
+      oc.id
+  `;
+
+  const { rows } = await db.query(query, [projectId]);
+  return rows;
+};
+
 module.exports = {
   getProjectsWithOtherComponents,
   updateOtherComponentStatus,
   createOtherComponent,
   getStatusIdByName,
+  updateOtherComponentDetails,
+  deleteOtherComponentById,
+  getOtherComponentsByProjectId,
 };
