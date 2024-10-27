@@ -43,43 +43,99 @@ const getProjectsWithOtherComponents = async () => {
 //     const fromStatusId = await getStatusIdByName(fromStatus);
 //     const toStatusId = await getStatusIdByName(toStatus);
 
-//     // Decrease quantity in the 'from' status
-//     const { rowCount: fromRowCount } = await client.query(
-//       `UPDATE other_component_status_tracking
-//        SET quantity = quantity - $1
-//        WHERE other_component_id = $2 AND status_id = $3`,
-//       [quantity, componentId, fromStatusId]
-//     );
-
-//     if (fromRowCount === 0) {
-//       throw new Error(`No records found for status ${fromStatus}`);
+//     // 1. ตรวจสอบความถูกต้องของการเปลี่ยนสถานะ
+//     const validTransitions = {
+//       'planning': ['manufactured', 'rejected'],
+//       'manufactured': ['transported', 'rejected', 'planning'],
+//       'transported': ['manufactured', 'rejected'],
+//       'rejected': ['planning']
+//     };
+//     if (!validTransitions[fromStatus]?.includes(toStatus)) {
+//       throw new Error(`Invalid status transition from ${fromStatus} to ${toStatus}`);
 //     }
 
-//     // Increase quantity in the 'to' status
-//     const { rowCount: toRowCount } = await client.query(
-//       `UPDATE other_component_status_tracking
-//        SET quantity = quantity + $1
-//        WHERE other_component_id = $2 AND status_id = $3`,
-//       [quantity, componentId, toStatusId]
+//     // 2. ดึงข้อมูลปัจจุบันของ component
+//     const { rows: [currentComponent] } = await client.query(
+//       "SELECT total_quantity FROM other_components WHERE id = $1",
+//       [componentId]
 //     );
+//     const { rows: currentStatuses } = await client.query(
+//       `SELECT ocs.name, ocst.quantity 
+//        FROM other_component_status_tracking ocst 
+//        JOIN other_component_statuses ocs ON ocst.status_id = ocs.id 
+//        WHERE ocst.other_component_id = $1`,
+//       [componentId]
+//     );
+//     const currentStatusMap = currentStatuses.reduce((acc, { name, quantity }) => {
+//       acc[name] = parseInt(quantity);
+//       return acc;
+//     }, {});
 
-//     // If the 'to' status didn't exist, insert a new row
-//     if (toRowCount === 0) {
+//     // 3. ตรวจสอบจำนวนก่อนการอัพเดท
+//     if (currentStatusMap[fromStatus] < quantity) {
+//       throw new Error(`Not enough quantity in ${fromStatus} status`);
+//     }
+
+//     // 4. อัพเดทจำนวนตามสถานะ
+//     if (fromStatus === 'manufactured' && toStatus === 'transported') {
+//       // กรณีพิเศษ: ไม่ลดจำนวนจาก manufactured เมื่อเปลี่ยนเป็น transported
 //       await client.query(
 //         `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
-//          VALUES ($1, $2, $3, $4)`,
+//          VALUES ($1, $2, $3, $4)
+//          ON CONFLICT (other_component_id, status_id) 
+//          DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
+//         [componentId, toStatusId, quantity, userId]
+//       );
+//     } else if (fromStatus === 'transported' && toStatus === 'manufactured') {
+//       // กรณีพิเศษ: ไม่เพิ่มจำนวนใน manufactured เมื่อเปลี่ยนจาก transported
+//       await client.query(
+//         `UPDATE other_component_status_tracking
+//          SET quantity = quantity - $1
+//          WHERE other_component_id = $2 AND status_id = $3`,
+//         [quantity, componentId, fromStatusId]
+//       );
+//     } else if (fromStatus === 'manufactured' && (toStatus === 'rejected' || toStatus === 'planning')) {
+//       // กรณีพิเศษ: ลดจำนวนจาก manufactured และเพิ่มจำนวนใน rejected หรือ planning
+//       await client.query(
+//         `UPDATE other_component_status_tracking
+//          SET quantity = GREATEST(quantity - $1, 0)
+//          WHERE other_component_id = $2 AND status_id = $3`,
+//         [quantity, componentId, fromStatusId]
+//       );
+//       await client.query(
+//         `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
+//          VALUES ($1, $2, $3, $4)
+//          ON CONFLICT (other_component_id, status_id) 
+//          DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
+//         [componentId, toStatusId, quantity, userId]
+//       );
+//     } else {
+//       // กรณีทั่วไป
+//       await client.query(
+//         `UPDATE other_component_status_tracking
+//          SET quantity = GREATEST(quantity - $1, 0)
+//          WHERE other_component_id = $2 AND status_id = $3`,
+//         [quantity, componentId, fromStatusId]
+//       );
+//       await client.query(
+//         `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
+//          VALUES ($1, $2, $3, $4)
+//          ON CONFLICT (other_component_id, status_id) 
+//          DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
 //         [componentId, toStatusId, quantity, userId]
 //       );
 //     }
 
-//     // Fetch updated component data
-//     const { rows: [updatedComponent] } = await client.query(
-//       "SELECT * FROM other_components WHERE id = $1",
-//       [componentId]
+//     // 5. บันทึกประวัติการเปลี่ยนสถานะ
+//     await client.query(
+//       `INSERT INTO other_component_status_history 
+//        (other_component_id, from_status_id, to_status_id, quantity, created_by)
+//        VALUES ($1, $2, $3, $4, $5)`,
+//       [componentId, fromStatusId, toStatusId, quantity, userId]
 //     );
 
-//     // Fetch updated statuses
-//     const { rows: statuses } = await client.query(
+//     // 6. ดึงข้อมูลที่อัพเดทแล้ว
+//     const { rows: updatedStatuses } = await client.query(
 //       `SELECT ocs.name, ocst.quantity 
 //        FROM other_component_status_tracking ocst 
 //        JOIN other_component_statuses ocs ON ocst.status_id = ocs.id 
@@ -87,12 +143,35 @@ const getProjectsWithOtherComponents = async () => {
 //       [componentId]
 //     );
 
+//     const statusesWithQuantity = updatedStatuses.reduce((acc, { name, quantity }) => {
+//       acc[name] = parseInt(quantity);
+//       return acc;
+//     }, {});
+
+//     // คำนวณ percentage
+//     const percentages = {};
+//     for (const [status, statusQuantity] of Object.entries(statusesWithQuantity)) {
+//       percentages[status] = currentComponent.total_quantity > 0 
+//         ? (statusQuantity / currentComponent.total_quantity) * 100 
+//         : 0;
+//     }
+
 //     await client.query("COMMIT");
 
+//     // 7. Return ข้อมูล
 //     return {
-//       ...updatedComponent,
-//       statuses: statuses.reduce((acc, status) => ({ ...acc, [status.name]: status.quantity }), {})
+//       id: componentId,
+//       statuses: statusesWithQuantity,
+//       total: currentComponent.total_quantity,
+//       percentages: percentages,
+//       _lastUpdate: {
+//         fromStatus,
+//         toStatus,
+//         quantity,
+//         timestamp: new Date().toISOString()
+//       }
 //     };
+
 //   } catch (error) {
 //     await client.query("ROLLBACK");
 //     console.error('Error in updateOtherComponentStatus:', error);
@@ -111,44 +190,114 @@ const updateOtherComponentStatus = async (componentId, fromStatus, toStatus, qua
     const fromStatusId = await getStatusIdByName(fromStatus);
     const toStatusId = await getStatusIdByName(toStatus);
 
-    // Fetch current quantities
-    const { rows: currentQuantities } = await client.query(
-      `SELECT status_id, quantity FROM other_component_status_tracking 
-       WHERE other_component_id = $1`,
+    // 1. อัพเดทการเปลี่ยนสถานะที่อนุญาต
+    const validTransitions = {
+      'planning': ['manufactured', 'rejected'],
+      'manufactured': ['transported', 'rejected', 'planning'],
+      'transported': ['manufactured', 'rejected'],
+      'rejected': ['planning', 'transported'] // เพิ่ม transported เข้าไป
+    };
+    if (!validTransitions[fromStatus]?.includes(toStatus)) {
+      throw new Error(`Invalid status transition from ${fromStatus} to ${toStatus}`);
+    }
+
+    // 2. ดึงข้อมูลปัจจุบันของ component
+    const { rows: [currentComponent] } = await client.query(
+      "SELECT total_quantity FROM other_components WHERE id = $1",
       [componentId]
     );
-
-    const currentQuantityMap = currentQuantities.reduce((acc, { status_id, quantity }) => {
-      acc[status_id] = quantity;
+    const { rows: currentStatuses } = await client.query(
+      `SELECT ocs.name, ocst.quantity 
+       FROM other_component_status_tracking ocst 
+       JOIN other_component_statuses ocs ON ocst.status_id = ocs.id 
+       WHERE ocst.other_component_id = $1`,
+      [componentId]
+    );
+    const currentStatusMap = currentStatuses.reduce((acc, { name, quantity }) => {
+      acc[name] = parseInt(quantity);
       return acc;
     }, {});
 
-    // Update quantities
-    if (fromStatus !== 'manufactured') {
+    // 3. ตรวจสอบจำนวนก่อนการอัพเดท
+    if (currentStatusMap[fromStatus] < quantity) {
+      throw new Error(`Not enough quantity in ${fromStatus} status`);
+    }
+
+    // 4. อัพเดทจำนวนตามสถานะ
+    if (fromStatus === 'rejected' && toStatus === 'transported') {
+      // กรณีพิเศษ: จาก rejected ไป transported
+      await client.query(
+        `UPDATE other_component_status_tracking
+         SET quantity = GREATEST(quantity - $1, 0)
+         WHERE other_component_id = $2 AND status_id = $3`,
+        [quantity, componentId, fromStatusId]
+      );
+      await client.query(
+        `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (other_component_id, status_id) 
+         DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
+        [componentId, toStatusId, quantity, userId]
+      );
+    } else if (fromStatus === 'manufactured' && toStatus === 'transported') {
+      // กรณีพิเศษ: ไม่ลดจำนวนจาก manufactured เมื่อเปลี่ยนเป็น transported
+      await client.query(
+        `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (other_component_id, status_id) 
+         DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
+        [componentId, toStatusId, quantity, userId]
+      );
+    } else if (fromStatus === 'transported' && toStatus === 'manufactured') {
+      // กรณีพิเศษ: ไม่เพิ่มจำนวนใน manufactured เมื่อเปลี่ยนจาก transported
       await client.query(
         `UPDATE other_component_status_tracking
          SET quantity = quantity - $1
          WHERE other_component_id = $2 AND status_id = $3`,
         [quantity, componentId, fromStatusId]
       );
+    } else if (fromStatus === 'manufactured' && (toStatus === 'rejected' || toStatus === 'planning')) {
+      // กรณีพิเศษ: ลดจำนวนจาก manufactured และเพิ่มจำนวนใน rejected หรือ planning
+      await client.query(
+        `UPDATE other_component_status_tracking
+         SET quantity = GREATEST(quantity - $1, 0)
+         WHERE other_component_id = $2 AND status_id = $3`,
+        [quantity, componentId, fromStatusId]
+      );
+      await client.query(
+        `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (other_component_id, status_id) 
+         DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
+        [componentId, toStatusId, quantity, userId]
+      );
+    } else {
+      // กรณีทั่วไป
+      await client.query(
+        `UPDATE other_component_status_tracking
+         SET quantity = GREATEST(quantity - $1, 0)
+         WHERE other_component_id = $2 AND status_id = $3`,
+        [quantity, componentId, fromStatusId]
+      );
+      await client.query(
+        `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (other_component_id, status_id) 
+         DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
+        [componentId, toStatusId, quantity, userId]
+      );
     }
 
+    // 5. บันทึกประวัติการเปลี่ยนสถานะ
     await client.query(
-      `INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (other_component_id, status_id) 
-       DO UPDATE SET quantity = other_component_status_tracking.quantity + $3`,
-      [componentId, toStatusId, quantity, userId]
+      `INSERT INTO other_component_status_history 
+       (other_component_id, from_status_id, to_status_id, quantity, created_by)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [componentId, fromStatusId, toStatusId, quantity, userId]
     );
 
-    // Calculate inProduction (for internal use only)
-    const manufactured = currentQuantityMap[await getStatusIdByName('manufactured')] || 0;
-    const transported = currentQuantityMap[await getStatusIdByName('transported')] || 0;
-    const rejected = currentQuantityMap[await getStatusIdByName('rejected')] || 0;
-    const inProduction = manufactured - transported - rejected;
-
-    // Fetch updated quantities
-    const { rows: updatedQuantities } = await client.query(
+    // 6. ดึงข้อมูลที่อัพเดทแล้ว
+    const { rows: updatedStatuses } = await client.query(
       `SELECT ocs.name, ocst.quantity 
        FROM other_component_status_tracking ocst 
        JOIN other_component_statuses ocs ON ocst.status_id = ocs.id 
@@ -156,19 +305,72 @@ const updateOtherComponentStatus = async (componentId, fromStatus, toStatus, qua
       [componentId]
     );
 
+    const statusesWithQuantity = updatedStatuses.reduce((acc, { name, quantity }) => {
+      acc[name] = parseInt(quantity);
+      return acc;
+    }, {});
+
+    // คำนวณ percentage
+    const percentages = {};
+    for (const [status, statusQuantity] of Object.entries(statusesWithQuantity)) {
+      percentages[status] = currentComponent.total_quantity > 0 
+        ? (statusQuantity / currentComponent.total_quantity) * 100 
+        : 0;
+    }
+
     await client.query("COMMIT");
 
-    // Return updated data without inProduction
     return {
       id: componentId,
-      ...updatedQuantities.reduce((acc, { name, quantity }) => ({ ...acc, [name]: quantity }), {})
+      statuses: statusesWithQuantity,
+      total: currentComponent.total_quantity,
+      percentages: percentages,
+      _lastUpdate: {
+        fromStatus,
+        toStatus,
+        quantity,
+        timestamp: new Date().toISOString()
+      }
     };
+
   } catch (error) {
     await client.query("ROLLBACK");
     console.error('Error in updateOtherComponentStatus:', error);
     throw error;
   } finally {
     client.release();
+  }
+};
+
+const getOtherComponentStatusHistory = async (componentId) => {
+  const query = `
+    SELECT 
+      h.id, 
+      fs.name AS from_status, 
+      ts.name AS to_status, 
+      h.quantity, 
+      h.created_at, 
+      u.username AS created_by
+    FROM 
+      other_component_status_history h
+    JOIN 
+      other_component_statuses fs ON h.from_status_id = fs.id
+    JOIN 
+      other_component_statuses ts ON h.to_status_id = ts.id
+    JOIN 
+      users u ON h.created_by = u.id
+    WHERE 
+      h.other_component_id = $1
+    ORDER BY 
+      h.created_at DESC
+  `;
+
+  try {
+    const { rows } = await db.query(query, [componentId]);
+    return rows;
+  } catch (error) {
+    console.error('Error in getOtherComponentStatusHistory:', error);
+    throw error;
   }
 };
 
@@ -189,6 +391,14 @@ const createOtherComponent = async (data) => {
     const planningStatusId = await getStatusIdByName("planning");
     await client.query(
       "INSERT INTO other_component_status_tracking (other_component_id, status_id, quantity, created_by) VALUES ($1, $2, $3, $4)",
+      [newComponent.id, planningStatusId, newComponent.total_quantity, newComponent.created_by]
+    );
+
+    // Add initial status history entry
+    await client.query(
+      `INSERT INTO other_component_status_history 
+       (other_component_id, from_status_id, to_status_id, quantity, created_by)
+       VALUES ($1, $2, $2, $3, $4)`,
       [newComponent.id, planningStatusId, newComponent.total_quantity, newComponent.created_by]
     );
 
