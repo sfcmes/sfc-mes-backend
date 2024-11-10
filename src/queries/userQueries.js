@@ -86,21 +86,21 @@ const queryAssignProjectsToUser = async (userId, projectIds) => {
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
-
-    // ลบความสัมพันธ์เดิมทั้งหมดของผู้ใช้นี้
     await client.query('DELETE FROM user_projects WHERE user_id = $1', [userId]);
 
-    // เพิ่มความสัมพันธ์ใหม่
-    for (const projectId of projectIds) {
-      await client.query(
-        'INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2) ON CONFLICT (user_id, project_id) DO NOTHING',
-        [userId, projectId]
-      );
+    if (projectIds && projectIds.length > 0) {
+      const values = projectIds.map((_, idx) => `($1, $${idx + 2})`).join(',');
+      const query = `
+        INSERT INTO user_projects (user_id, project_id)
+        VALUES ${values}
+        ON CONFLICT (user_id, project_id) DO NOTHING
+      `;
+      await client.query(query, [userId, ...projectIds]);
     }
-
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
+    console.error('Error in queryAssignProjectsToUser:', error);
     throw error;
   } finally {
     client.release();
@@ -120,6 +120,79 @@ const queryGetUserByUsernameWithRole = async (username) => {
   return rows[0];
 };
 
+// userQueries.js
+const getUserProjects = async (userId) => {
+  const query = `
+    SELECT DISTINCT 
+      p.id as project_id,
+      p.name,
+      p.project_code
+    FROM projects p
+    INNER JOIN user_projects up ON p.id = up.project_id
+    WHERE up.user_id = $1
+  `;
+  
+  try {
+    const { rows } = await db.query(query, [userId]);
+    return {
+      success: true,
+      data: rows,
+      count: rows.length
+    };
+  } catch (error) {
+    console.error('Error executing query:', error);
+    throw error;
+  }
+};
+
+// const assignProjectsToUser = async (req, res) => {
+//   const { userId } = req.params;
+//   const { projectIds } = req.body;
+  
+//   if (!Array.isArray(projectIds)) {
+//     return res.status(400).json({ error: 'projectIds must be an array' });
+//   }
+
+//   try {
+//     await queryAssignProjectsToUser(userId, projectIds);
+    
+//     // เปลี่ยนจาก queryGetUserProjects เป็น getUserProjects
+//     const updatedProjects = await getUserProjects(userId);
+    
+//     res.json({
+//       message: 'Projects assigned successfully',
+//       projects: updatedProjects
+//     });
+//   } catch (error) {
+//     console.error('Error assigning projects to user:', error);
+//     res.status(500).json({ error: 'Failed to assign projects to user' });
+//   }
+// };
+
+// const getUserProjects = async (userId) => {
+//   const query = `
+//     SELECT 
+//       p.id, 
+//       p.name,
+//       p.project_code,
+//       p.status
+//     FROM projects p
+//     INNER JOIN user_projects up ON p.id = up.project_id
+//     WHERE up.user_id = $1
+//   `;
+//   try {
+//     const { rows } = await db.query(query, [userId]);
+//     return rows;
+//   } catch (error) {
+//     console.error('Error executing query', { 
+//       text: query, 
+//       userId, 
+//       error: error.message 
+//     });
+//     throw new Error(`Failed to fetch user projects: ${error.message}`);
+//   }
+// };
+
 
 module.exports = {
   getAllUsers,
@@ -133,4 +206,5 @@ module.exports = {
   queryGetUserByUsername,
   queryAssignProjectsToUser,
   queryGetUserByUsernameWithRole,
+  getUserProjects,
 };

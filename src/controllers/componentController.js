@@ -168,15 +168,12 @@ const getComponentsByProjectId = async (req, res) => {
       [projectId]
     );
 
-    if (rows.length === 0) {
-      return res
-        .status(404)
-        .json({ error: "No components found for this project" });
-    }
-    res.json(rows);
+    // Return empty array instead of 404
+    res.json(rows); // Always return the rows array, even if empty
+
   } catch (error) {
     console.error("Error fetching components:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.json([]); // Return empty array on error instead of error response
   }
 };
 
@@ -864,6 +861,53 @@ const updateComponentStatusAuth = async (req, res) => {
   }
 };
 
+const deleteComponent = async (req, res) => {
+  const { id } = req.params;
+  const client = await db.getClient();
+
+  try {
+    await client.query('BEGIN');
+
+    // Delete component files from S3
+    const fileQuery = 'SELECT s3_url FROM component_files WHERE component_id = $1';
+    const { rows: files } = await client.query(fileQuery, [id]);
+    
+    // Delete files from S3 in parallel
+    const deletePromises = files.map(async (file) => {
+      const fileName = file.s3_url.split('/').pop();
+      try {
+        await s3.send(new DeleteObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: fileName
+        }));
+      } catch (error) {
+        console.error(`Error deleting file from S3: ${fileName}`, error);
+        // Continue with deletion even if S3 deletion fails
+      }
+    });
+    await Promise.all(deletePromises);
+
+    // Delete all related records in order
+    await client.query('DELETE FROM component_files WHERE component_id = $1', [id]);
+    await client.query('DELETE FROM component_status_history WHERE component_id = $1', [id]);
+    await client.query('DELETE FROM components WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
+    
+    res.json({ message: 'Component deleted successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting component:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete component', 
+      details: error.message 
+    });
+  } finally {
+    client.release();
+  }
+};
+
+
 module.exports = {
   addComponent,
   getComponents,
@@ -883,6 +927,7 @@ module.exports = {
   updateComponentStatus,
   updateComponentStatusPublic,
   updateComponentStatusAuth,
+  deleteComponent,
   // getOtherComponentsByProjectId,
   // updateOtherComponent,
   // deleteOtherComponent,

@@ -11,6 +11,7 @@ const {
   queryGetUserByUsername,
   queryAssignProjectsToUser,
   queryGetUserByUsernameWithRole,
+  getUserProjects: queryGetUserProjects,
 } = require("../queries/userQueries");
 const jwt = require("jsonwebtoken");
 
@@ -114,16 +115,102 @@ const createUser = async (req, res) => {
   }
 };
 
-// แก้ไข function นี้
-const assignProjectsToUser = async (req, res) => {
-  const { userId } = req.params;
-  const { projectIds } = req.body;
+// ส่วนที่ 1: ฟังก์ชันสำหรับดึงข้อมูลโดยตรง
+const fetchUserProjectsData = async (userId) => {
   try {
-    await queryAssignProjectsToUser(userId, projectIds);
-    res.json({ message: "Projects assigned successfully" });
+    const projects = await queryGetUserProjects(userId);
+    return projects;
   } catch (error) {
-    console.error("Error assigning projects to user:", error);
-    res.status(500).json({ error: "Failed to assign projects to user" });
+    console.error('Error fetching user projects:', error);
+    throw error;
+  }
+};
+
+// In userController.js
+
+const getUserProjects = async (req, res) => {
+  const { userId } = req.params;
+  
+  if (!userId) {
+    return res.status(400).json({ 
+      error: 'User ID is required',
+      details: 'The userId parameter is missing from the request URL'
+    });
+  }
+
+  try {
+    // Use queryGetUserById instead of getUserById
+    const userExists = await queryGetUserById(userId);
+    if (!userExists) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        details: 'No user exists with the provided userId'
+      });
+    }
+
+    const projects = await queryGetUserProjects(userId);
+    
+    res.json({
+      success: true,
+      data: projects || [],
+      count: projects ? projects.length : 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching user projects:', {
+      userId,
+      error: error.message,
+      stack: error.stack
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to fetch user projects',
+      details: error.message
+    });
+  }
+};
+
+const assignProjectsToUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { projectIds } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    if (!Array.isArray(projectIds)) {
+      return res.status(400).json({ error: 'projectIds must be an array' });
+    }
+
+    // First assign the projects
+    await queryAssignProjectsToUser(userId, projectIds);
+    
+    // Then fetch the updated projects list
+    const updatedProjects = await queryGetUserProjects(userId);
+    
+    res.json({
+      message: 'Projects assigned successfully',
+      projects: updatedProjects
+    });
+  } catch (error) {
+    console.error('Error assigning projects to user:', error);
+    res.status(500).json({ 
+      error: 'Failed to assign projects to user',
+      details: error.message 
+    });
+  }
+};
+
+
+const getUserProjectsHandler = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const projects = await getUserProjects(userId);
+    res.json(projects);
+  } catch (error) {
+    console.error('Error fetching user projects:', error);
+    res.status(500).json({ error: 'Failed to fetch user projects' });
   }
 };
 
@@ -243,4 +330,6 @@ module.exports = {
   getUserByUsername,
   assignProjectsToUser,
   checkUsernameAndRole,
+  getUserProjects,
+  // getUserProjects: getUserProjectsHandler,
 };

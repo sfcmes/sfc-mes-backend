@@ -12,20 +12,19 @@ const {
 const auth = require('../middleware/auth');
 const router = express.Router();
 const upload = require('../middleware/uploadMiddleware');
-
-// Public routes
-router.get('/', getProjects);
+// Public routes - make sure these are BEFORE any auth middleware
+router.get('/public/projects', getProjects);
+router.get('/projects', getProjects);  // Keep this for backward compatibility
+router.get('/', getProjects);  // This is what's actually being called
 router.get('/:id', getProject);
 router.get('/:id/images', getProjectImagesController);
 
 // Protected routes
-router.use(auth);
+router.use(auth); // Everything after this will require authentication
 router.post('/', addProject);
 router.put('/:id', updateProject);
 router.post('/:id/images', upload.single('file'), uploadProjectImage);
 router.delete('/:id', deleteProject);
-
-// Add this new route for deleting project images
 router.delete('/:projectId/images/:imageId', deleteProjectImageController);
 
 module.exports = router;

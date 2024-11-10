@@ -16,6 +16,7 @@ const {
   addComponentsBatch,
   updateComponentStatus,
   updateComponentStatusAuth,
+  deleteComponent,
 } = require("../controllers/componentController");
 const {
   getProjectDetailsByComponentId,
@@ -45,6 +46,7 @@ router.put(
   updateFileInRevision
 );
 router.delete("/:componentId/files/:revision", deleteFileRevision);
+router.delete("/:id", deleteComponent);
 router.post(
   "/:componentId/upload-file",
   upload.single("file"),

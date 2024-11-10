@@ -11,33 +11,25 @@ const {
   checkUsername,
   assignProjectsToUser,
   checkUsernameAndRole,
+  getUserProjects,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
+// Public routes
 router.post("/check-username", checkUsername);
-router.get("/roles", getRoles); // New route to fetch roles
-router.post("/check-username-and-role", checkUsernameAndRole); // Add the new route
-// router.get('/me',  getUserProfile); // Define this route before the :id route
-router.get("/me", auth, getUserProfile);
-router.post("/", createUser);
-router.get("/:id", getUserById); // This should be after the more specific routes
+router.post("/check-username-and-role", checkUsernameAndRole);
 
-router.get("/users/roles", getRoles); // New route to fetch roles
-// GET all users
+// Protected routes
+router.get("/roles", getRoles);
+router.get("/me", auth, getUserProfile);
 router.get("/", getUsers);
 
-// POST create a new user
+// User CRUD and project management routes
 router.post("/", createUser);
-router.post("/:userId/projects", assignProjectsToUser);
-router.post("/assign-projects", assignProjectsToUser);
-
-// PUT update an existing user
+router.get("/:userId/projects", auth, getUserProjects); // Move before generic :id route
+router.post("/:userId/projects", auth, assignProjectsToUser); // Move before generic :id route
+router.get("/:id", getUserById);
 router.put("/:id", updateUser);
-
-// DELETE a user
 router.delete("/:id", deleteUser);
-
-// GET user profile
-// router.get('/me', auth, getUserProfile); // Use /me for current user's profile
 
 module.exports = router;
