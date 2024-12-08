@@ -131,72 +131,54 @@ const fetchUserProjectsData = async (userId) => {
 const getUserProjects = async (req, res) => {
   const { userId } = req.params;
   
-  if (!userId) {
-    return res.status(400).json({ 
-      error: 'User ID is required',
-      details: 'The userId parameter is missing from the request URL'
-    });
-  }
-
   try {
-    // Use queryGetUserById instead of getUserById
-    const userExists = await queryGetUserById(userId);
-    if (!userExists) {
-      return res.status(404).json({ 
-        error: 'User not found',
-        details: 'No user exists with the provided userId'
-      });
-    }
-
     const projects = await queryGetUserProjects(userId);
     
-    res.json({
-      success: true,
-      data: projects || [],
-      count: projects ? projects.length : 0
-    });
-
-  } catch (error) {
-    console.error('Error fetching user projects:', {
-      userId,
-      error: error.message,
-      stack: error.stack
-    });
+    // Force fresh response
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     
-    res.status(500).json({ 
-      error: 'Failed to fetch user projects',
-      details: error.message
-    });
+    res.json(projects);
+  } catch (error) {
+    console.error('Error fetching user projects:', error);
+    res.status(500).json({ error: 'Failed to fetch user projects' });
   }
 };
 
 const assignProjectsToUser = async (req, res) => {
+  const { userId } = req.params;
+  const { projectIds } = req.body;
+  
+  console.log('Assigning projects to user:', { userId, projectIds });
+  
   try {
-    const { userId } = req.params;
-    const { projectIds } = req.body;
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-    
     if (!Array.isArray(projectIds)) {
-      return res.status(400).json({ error: 'projectIds must be an array' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'projectIds must be an array' 
+      });
     }
 
-    // First assign the projects
+    // Assign projects
     await queryAssignProjectsToUser(userId, projectIds);
     
-    // Then fetch the updated projects list
+    // Fetch updated projects
     const updatedProjects = await queryGetUserProjects(userId);
     
+    console.log('Updated user projects:', updatedProjects);
+    
+    // Send response with updated data
     res.json({
+      success: true,
       message: 'Projects assigned successfully',
-      projects: updatedProjects
+      data: updatedProjects.data
     });
   } catch (error) {
-    console.error('Error assigning projects to user:', error);
+    console.error('Error assigning projects:', error);
     res.status(500).json({ 
-      error: 'Failed to assign projects to user',
+      success: false,
+      error: 'Failed to assign projects',
       details: error.message 
     });
   }

@@ -86,18 +86,31 @@ const queryAssignProjectsToUser = async (userId, projectIds) => {
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
+    
+    // Delete existing assignments
     await client.query('DELETE FROM user_projects WHERE user_id = $1', [userId]);
 
+    let result = [];
     if (projectIds && projectIds.length > 0) {
-      const values = projectIds.map((_, idx) => `($1, $${idx + 2})`).join(',');
+      // Create parameterized values and placeholders
+      const values = [userId];
+      const placeholders = projectIds.map((_, idx) => `($1, $${idx + 2})`).join(',');
       const query = `
         INSERT INTO user_projects (user_id, project_id)
-        VALUES ${values}
-        ON CONFLICT (user_id, project_id) DO NOTHING
+        VALUES ${placeholders}
+        RETURNING *
       `;
-      await client.query(query, [userId, ...projectIds]);
+      
+      // Add project IDs to values array
+      projectIds.forEach(id => values.push(id));
+      
+      // Execute insert query
+      const response = await client.query(query, values);
+      result = response.rows;
     }
+
     await client.query('COMMIT');
+    return result;
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error in queryAssignProjectsToUser:', error);
@@ -130,14 +143,14 @@ const getUserProjects = async (userId) => {
     FROM projects p
     INNER JOIN user_projects up ON p.id = up.project_id
     WHERE up.user_id = $1
+    ORDER BY p.name
   `;
   
   try {
     const { rows } = await db.query(query, [userId]);
     return {
       success: true,
-      data: rows,
-      count: rows.length
+      data: rows || []
     };
   } catch (error) {
     console.error('Error executing query:', error);

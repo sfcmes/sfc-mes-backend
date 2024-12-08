@@ -35,13 +35,36 @@ const corsOptions = {
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization',
+    'Cache-Control',
+    'If-None-Match',
+    'If-Match',
+    'ETag',
+    'Pragma',
+    'Expires'
+  ],
+  exposedHeaders: ['ETag'],
   credentials: true,
   optionsSuccessStatus: 204,
   maxAge: 3600 // 1 hour, adjust as needed
 };
 
+// Helper function to add cache control headers to responses
+const addCacheHeaders = (req, res, next) => {
+  if (req.method === 'GET') {
+    res.set({
+      'Cache-Control': 'private, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+  }
+  next();
+};
+
 module.exports = {
   corsOptions,
+  addCacheHeaders,
   getCorsOptions: (env) => corsOptions
 };
